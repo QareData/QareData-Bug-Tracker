@@ -69,7 +69,7 @@ body {
 .header-content,
 .filter-content,
 .app-main {
-  max-width: 1480px;
+  max-width: 1560px;
   margin: 0 auto;
 }
 
@@ -653,6 +653,7 @@ body.dark-mode .header-main {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   font-size: 18px;
   font-weight: 700;
