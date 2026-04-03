@@ -136,7 +136,9 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
             </button>
           </div>
         </section>
+      </div>
 
+      <div class="card-modal__detail-layout">
         <section class="qa-panel qa-panel--source">
           <div class="qa-panel__head">
             <h5>Historique source</h5>
@@ -149,44 +151,44 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
             ${renderSourceBlock("Conseils", card.advice)}
           </div>
         </section>
-      </div>
 
-      <div class="card-modal__panels">
-        <label class="field textarea-field">
-          <span>Notes QA</span>
-          <textarea
-            class="card-textarea"
-            data-field="notes"
-            placeholder="Constats, reproduction, impact, risques..."
-          >${escapeHtml(card.notes)}</textarea>
-        </label>
-
-        <section class="qa-panel qa-panel--upload">
-          <div class="qa-panel__head">
-            <h5>Captures et preuves</h5>
-            <span>${screenshotCount} capture${screenshotCount > 1 ? "s" : ""}</span>
-          </div>
-
-          <label class="qa-dropzone" data-dropzone>
-            <input
-              class="screenshot-input"
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-            />
-            <strong>Importer des captures</strong>
-            <span>Glisser-déposer ici ou cliquer pour choisir une image.</span>
+        <div class="card-modal__side-stack">
+          <label class="field textarea-field card-modal__notes-panel">
+            <span>Notes QA</span>
+            <textarea
+              class="card-textarea"
+              data-field="notes"
+              placeholder="Constats, reproduction, impact, risques..."
+            >${escapeHtml(card.notes)}</textarea>
           </label>
 
-          <div class="qa-shot-grid">
-            ${
-              screenshotCount
-                ? card.screenshots.map((shot) => renderScreenshot(shot)).join("")
-                : `<div class="qa-empty-shot">Aucune capture pour le moment.</div>`
-            }
-          </div>
-        </section>
+          <section class="qa-panel qa-panel--upload">
+            <div class="qa-panel__head">
+              <h5>Captures et preuves</h5>
+              <span>${screenshotCount} capture${screenshotCount > 1 ? "s" : ""}</span>
+            </div>
+
+            <label class="qa-dropzone" data-dropzone>
+              <input
+                class="screenshot-input"
+                type="file"
+                accept="image/*"
+                multiple
+                hidden
+              />
+              <strong>Importer des captures</strong>
+              <span>Glisser-déposer ici ou cliquer pour choisir une image.</span>
+            </label>
+
+            <div class="qa-shot-grid">
+              ${
+                screenshotCount
+                  ? card.screenshots.map((shot) => renderScreenshot(shot)).join("")
+                  : `<div class="qa-empty-shot">Aucune capture pour le moment.</div>`
+              }
+            </div>
+          </section>
+        </div>
       </div>
 
       ${

@@ -1379,6 +1379,24 @@ body.dark-mode .header-main {
   margin-bottom: 18px;
 }
 
+.card-modal__detail-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  margin-bottom: 18px;
+  align-items: start;
+}
+
+.card-modal__side-stack {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.card-modal__detail-layout .qa-source-grid {
+  grid-template-columns: 1fr;
+}
+
 .card-modal__context-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1432,8 +1450,16 @@ body.dark-mode .header-main {
   align-content: start;
 }
 
+.qa-card--modal .card-modal__notes-panel {
+  height: auto;
+}
+
 .qa-card--modal .card-textarea {
   min-height: 220px;
+}
+
+.qa-card--modal .card-modal__notes-panel .card-textarea {
+  min-height: 180px;
 }
 
 .qa-card--modal .qa-scenario-step,
@@ -1463,6 +1489,7 @@ body.dark-mode .header-main {
   .page-section .cards-grid,
   .card-modal__grid,
   .card-modal__panels,
+  .card-modal__detail-layout,
   .qa-source-grid,
   .qa-step__bug-grid {
     grid-template-columns: 1fr;
