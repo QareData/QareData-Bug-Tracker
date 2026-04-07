@@ -7,10 +7,10 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>QareData QA Board - Refonte Professionnelle</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon-checklist.svg?v=20260403-user-scenario-2" />
-  <link rel="shortcut icon" href="./assets/favicon-checklist.svg?v=20260403-user-scenario-2" />
-  <link rel="stylesheet" href="./styles.css?v=20260403-user-scenario-2" />
-  <link rel="stylesheet" href="./minimal-cards.css?v=20260403-user-scenario-2" />
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon-checklist.svg?v=20260407-ui-fixes-3" />
+  <link rel="shortcut icon" href="./assets/favicon-checklist.svg?v=20260407-ui-fixes-3" />
+  <link rel="stylesheet" href="./styles.css?v=20260407-ui-fixes-3" />
+  <link rel="stylesheet" href="./minimal-cards.css?v=20260407-ui-fixes-3" />
 </head>
 <body>
   <!-- ===== HEADER GLOBAL ===== -->
@@ -29,14 +29,6 @@
 
         <!-- Actions principales en haut -->
         <div class="header-actions">
-          <button class="btn btn-primary" id="import-json" title="Importer JSON">
-            <span>📥</span>
-            <span>Importer</span>
-          </button>
-          <button class="btn btn-primary" id="export-json" title="Exporter JSON">
-            <span>📤</span>
-            <span>JSON</span>
-          </button>
           <button class="btn btn-success" id="generate-pdf" title="Exporter PDF">
             <span>📄</span>
             <span>PDF</span>
@@ -50,7 +42,7 @@
             <span>Réinitialiser</span>
           </button>
           <div class="theme-toggle">
-            <button class="btn btn-ghost" id="btn-theme" title="Mode sombre/clair">
+            <button class="btn btn-ghost" id="btn-theme" type="button" title="Activer le mode sombre" aria-label="Activer le mode sombre" aria-pressed="false">
               <span id="theme-icon">☾</span>
             </button>
           </div>
@@ -84,61 +76,12 @@
     </div>
   </header>
 
-  <!-- ===== BARRE DE FILTRES ===== -->
-  <nav class="filter-bar">
-    <div class="filter-content">
-      <!-- Filtres par surface et page -->
-      <div class="filter-group">
-        <select id="surface-filter" class="filter-select">
-          <option value="all">Toutes les surfaces</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <select id="page-filter" class="filter-select">
-          <option value="all">Toutes les pages</option>
-        </select>
-      </div>
-
-      <!-- Filtres par statut et sévérité -->
-      <div class="filter-group">
-        <select id="status-filter" class="filter-select">
-          <option value="all">Tous les statuts</option>
-          <option value="todo">À lancer</option>
-          <option value="progress">En cours</option>
-          <option value="done">Validées</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <select id="severity-filter" class="filter-select">
-          <option value="all">Toutes les criticités</option>
-          <option value="blocker">🔴 Bloquant</option>
-          <option value="major">🟠 Majeur</option>
-          <option value="minor">🟡 Mineur</option>
-        </select>
-      </div>
-
-      <!-- Toggles compacts -->
-      <div class="filter-toggles">
-        <label class="toggle-checkbox">
-          <input type="checkbox" id="only-bugs" />
-          <span>🐛 Bugs uniquement</span>
-        </label>
-        <label class="toggle-checkbox">
-          <input type="checkbox" id="only-not-validated" />
-          <span>❌ Non validées</span>
-        </label>
-        <label class="toggle-checkbox">
-          <input type="checkbox" id="hide-done" />
-          <span>👁️ Masquer validées</span>
-        </label>
-      </div>
-    </div>
-  </nav>
-
   <!-- ===== ZONE PRINCIPALE ===== -->
   <main class="app-main">
+    <aside class="sidebar-sections" id="sidebar-nav-root" aria-label="Navigation latérale">
+      <!-- Généré dynamiquement -->
+    </aside>
+
     <!-- Barre de création de carte manuelle -->
     <aside class="create-card-panel">
       <h3>➕ Créer une carte manuelle</h3>
@@ -214,11 +157,7 @@
       </div>
     </div>
   </div>
-
-  <!-- ===== INPUT FILE (caché) ===== -->
-  <input type="file" id="file-import" accept="application/json" style="display: none;" />
-
   <!-- Scripts -->
-  <script type="module" src="./src/main.js?v=20260403-user-scenario-2"></script>
+  <script type="module" src="./src/main.js?v=20260407-ui-fixes-3"></script>
 </body>
 </html>

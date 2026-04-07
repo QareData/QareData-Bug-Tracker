@@ -1,10 +1,16 @@
-import { getFilteredBoard, getSurfaceMetrics } from "../core/state.js?v=20260403-user-scenario-2";
-import { escapeHtml } from "../utils/format.js?v=20260403-user-scenario-2";
-import { renderSummary } from "./components/sidebar.js?v=20260403-user-scenario-2";
-import { renderCard } from "./components/card.js?v=20260403-user-scenario-2";
+import { getFilteredBoard, getSurfaceMetrics } from "../core/state.js?v=20260407-ui-fixes-2";
+import { escapeHtml } from "../utils/format.js?v=20260407-ui-fixes-2";
+import { renderSidebarNavigation, renderSummary } from "./components/sidebar.js?v=20260407-ui-fixes-2";
+import { renderCard } from "./components/card.js?v=20260407-ui-fixes-2";
 
 export function renderApp(state, elements) {
   renderSummary(state.board, elements.summaryRoot);
+  renderSidebarNavigation(
+    state.board,
+    state.filters,
+    elements.sidebarNavRoot,
+    document.body.classList.contains("sidebar-collapsed"),
+  );
   renderBoard(state, elements.boardRoot);
 }
 
