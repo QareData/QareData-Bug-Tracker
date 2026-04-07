@@ -1111,8 +1111,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Le shop est accessible sur le périmètre principal du rôle QareData.",
+                "Le parcours d’accès nominal est cohérent."
+              ],
+              "advice": [
+                "Garder une vigilance légère sur les variantes QR virtuel, mais le nominal principal est jouable."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le flux d’accès shop a été couvert sur le rôle QareData avec parcours nominal.",
@@ -1174,8 +1179,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "La génération de codes non assignés fonctionne sur les deux variantes testées.",
+                "Les volumes générés sont cohérents avec les demandes."
+              ],
+              "advice": [
+                "Prévoir seulement une non-régression courte avant livraison."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "La génération a été testée sur des codes virtuels et avec stickers.",
@@ -1243,8 +1253,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Le cas nominal d’ajout est fonctionnel.",
+                "Les contrôles de base sur les champs nom et email sont passés."
+              ],
+              "advice": [
+                "Compléter encore une passe sur les variantes de restrictions et les doublons avant clôture."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le parcours a été joué sur création simple d’accès extérieur avec contrôle des champs principaux.",
@@ -1312,8 +1327,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Les modifications de politique principales sont prises en compte.",
+                "Le comportement observé reste stable après sauvegarde."
+              ],
+              "advice": [
+                "Conserver une petite passe de contrôle en non-régression globale."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le scénario a été testé sur plusieurs changements de règles puis revérifié après sauvegarde.",
@@ -1372,8 +1392,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Déconnexion, suppression et reconnexion ont été validées.",
+                "Les messages et transitions sont cohérents."
+              ],
+              "advice": [
+                "Rien de bloquant, uniquement conserver une non-régression mobile légère."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le flux compte a été rejoué sur app mobile avec plusieurs scénarios de session.",
@@ -1417,8 +1442,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Création et mise à jour d’intervention validées.",
+                "Les enregistrements sont visibles après retour sur liste."
+              ],
+              "advice": [
+                "Prévoir un simple contrôle de non-régression sur les dates si besoin."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le parcours mobile a été joué sur création puis édition d’intervention.",
@@ -1478,8 +1508,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "L’association QR code vers nouvel élément fonctionne.",
+                "Le lien créé est cohérent après rechargement."
+              ],
+              "advice": [
+                "Conserver une simple passe de non-régression cross-device."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le flux a été testé sur app mobile avec création de nouvel élément via QR code.",
@@ -1530,8 +1565,13 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
+              "validatedPoints": [
+                "Le contrôle domaine autorisé / non autorisé est valide.",
+                "L’accès aux formulaires dépend correctement du domaine."
+              ],
+              "advice": [
+                "Rien de bloquant sur le périmètre rejoué."
+              ],
               "references": [],
               "legacyContext": {
                 "description": "Le flux webview a été testé avec domaines autorisés puis non autorisés.",
@@ -1574,14 +1614,20 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": [],
-              "legacyContext": {
+                "sourceIssues": [],
+                "validatedPoints": [
+                "La création d’intervention fonctionne sur le cas nominal.",
+                "La mise à jour des champs principaux est bien persistée après rechargement."
+                ],
+                "advice": [
+                "Normaliser la gestion timezone côté front et back (UTC + affichage local).",
+                "Ajouter une vérification systématique du format date/heure sur création et édition."
+                ],
+                "references": [],
+                "legacyContext": {
                 "description": "Le flux webview a été rejoué sur la création puis la mise à jour d’une intervention en contrôlant la cohérence des dates, des heures et la persistance des changements après sauvegarde.",
                 "expectedResult": "Une intervention créée ou modifiée via la webview doit enregistrer les bonnes dates et heures, afficher les informations attendues et rester cohérente après rechargement."
-              }
+                }
             }
           ]
         }
