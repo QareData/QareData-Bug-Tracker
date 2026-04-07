@@ -1,4 +1,4 @@
-import { PDF_BRAND } from "../utils/constants.js?v=20260403-user-scenario-2";
+import { PDF_BRAND } from "../utils/constants.js?v=20260407-ui-fixes-2";
 import {
   blockQuoteMarkdown,
   cleanText,
@@ -8,7 +8,7 @@ import {
   formatPercent,
   formatReportDate,
   uniqueTexts,
-} from "../utils/format.js?v=20260403-user-scenario-2";
+} from "../utils/format.js?v=20260407-ui-fixes-2";
 import {
   flattenBoard,
   getBoardMetrics,
@@ -18,7 +18,7 @@ import {
   getSeverityMeta,
   getSourceStatusMeta,
   getSurfaceMetrics,
-} from "../core/state.js?v=20260403-user-scenario-2";
+} from "../core/state.js?v=20260407-ui-fixes-2";
 
 export function buildReportModel(board, generatedAt = new Date()) {
   const metrics = getBoardMetrics(board);
