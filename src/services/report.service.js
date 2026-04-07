@@ -1,4 +1,4 @@
-import { PDF_BRAND } from "../utils/constants.js?v=20260407-ui-fixes-2";
+import { PDF_BRAND } from "../utils/constants.js?v=20260407-pdf-phase1-1";
 import {
   blockQuoteMarkdown,
   cleanText,
@@ -8,7 +8,7 @@ import {
   formatPercent,
   formatReportDate,
   uniqueTexts,
-} from "../utils/format.js?v=20260407-ui-fixes-2";
+} from "../utils/format.js?v=20260407-pdf-phase1-1";
 import {
   flattenBoard,
   getBoardMetrics,
@@ -18,7 +18,7 @@ import {
   getSeverityMeta,
   getSourceStatusMeta,
   getSurfaceMetrics,
-} from "../core/state.js?v=20260407-ui-fixes-2";
+} from "../core/state.js?v=20260407-pdf-phase1-1";
 
 export function buildReportModel(board, generatedAt = new Date()) {
   const metrics = getBoardMetrics(board);
@@ -26,6 +26,10 @@ export function buildReportModel(board, generatedAt = new Date()) {
     buildCardDetail(board, surface, page, card),
   );
   const detailCards = cardDetails.filter((card) => card.isTested);
+  const undetailedCards = cardDetails
+    .filter((card) => !card.isTested)
+    .sort(sortDisplayCards);
+  const tocCards = detailCards.slice().sort(sortDisplayCards);
   const detailIds = new Set(detailCards.map((card) => card.id));
   const surfaces = board.surfaces
     .map((surface) => ({
@@ -47,6 +51,7 @@ export function buildReportModel(board, generatedAt = new Date()) {
     .sort(sortProblemCards)
     .slice(0, 8);
   const reportStats = buildReportStats(metrics, cardDetails);
+  const detailScope = buildDetailScope(reportStats);
 
   return {
     brand: {
@@ -59,11 +64,13 @@ export function buildReportModel(board, generatedAt = new Date()) {
     meta: board.meta,
     metrics,
     reportStats,
+    detailScope,
     summaryText: buildSummaryText(metrics, reportStats),
     surfaces,
     cardDetails,
     detailCards,
-    tocCards: detailCards,
+    tocCards,
+    undetailedCards,
     topProblems,
   };
 }
@@ -96,6 +103,7 @@ export function buildMarkdownReport(board, generatedAt = new Date()) {
   lines.push("| --- | --- |");
   lines.push(`| Cartes totales | ${report.reportStats.totalCards} |`);
   lines.push(`| Cartes testées | ${report.reportStats.testedCount} |`);
+  lines.push(`| Cartes détaillées | ${report.detailScope.detailedCount} |`);
   lines.push(`| Validées | ${report.reportStats.validatedCount} |`);
   lines.push(`| Partielles | ${report.reportStats.partialCount} |`);
   lines.push(`| Échouées | ${report.reportStats.failedCount} |`);
@@ -103,6 +111,9 @@ export function buildMarkdownReport(board, generatedAt = new Date()) {
   lines.push(`| Score QA global | ${report.reportStats.scorePercent}% |`);
   lines.push(`| Cartes avec notes | ${report.metrics.notesCount} |`);
   lines.push(`| Captures jointes | ${report.metrics.screenshotsCount} |`);
+  lines.push("");
+  lines.push(`- Périmètre détaillé : ${report.detailScope.summary}`);
+  lines.push(`- Règle d'inclusion : ${report.detailScope.inclusionNote}`);
   lines.push("");
 
   if (report.topProblems.length) {
@@ -137,6 +148,19 @@ export function buildMarkdownReport(board, generatedAt = new Date()) {
     lines.push("Aucune carte n'a encore été réellement testée ou documentée.");
     lines.push("");
     return lines.join("\n");
+  }
+
+  if (report.undetailedCards.length) {
+    lines.push("## Cartes non détaillées");
+    lines.push("");
+    lines.push("Les cartes ci-dessous restent visibles dans le board mais n'entrent pas encore dans le détail du rapport.");
+    lines.push("");
+    report.undetailedCards.forEach((card) => {
+      lines.push(
+        `- ${card.title} (${card.surfaceName} / ${card.pageName}) - ${card.reportStatus.label}`,
+      );
+    });
+    lines.push("");
   }
 
   report.surfaces.forEach((surface) => {
@@ -237,6 +261,8 @@ function appendCardMarkdown(lines, card, boardMeta) {
 function buildCardDetail(board, surface, page, card) {
   const checklistMetrics = getCardChecklistMetrics(card);
   const scenarioSteps = card.checklist.map((item) => buildScenarioStepDetail(item, board.meta));
+  const severity = getSeverityMeta(card.severity);
+  const status = getCardStatusMeta(card.status);
   const reportStatus = getCardReportStatus(card, scenarioSteps);
   const mentions = extractMentions([
     ...card.references,
@@ -253,13 +279,19 @@ function buildCardDetail(board, surface, page, card) {
     surfaceName: surface.name,
     pageId: page.id,
     pageName: page.name,
-    status: getCardStatusMeta(card.status),
-    severity: getSeverityMeta(card.severity),
+    status,
+    severity: {
+      ...severity,
+      badgeLabel: buildSeverityBadgeLabel(severity),
+    },
     sourceStatus: getSourceStatusMeta(card.sourceStatus),
     checklist: checklistMetrics,
     scenarioSteps,
     isTested: isCardTested(card, scenarioSteps),
-    reportStatus,
+    reportStatus: {
+      ...reportStatus,
+      badgeLabel: getReportStatusBadgeLabel(reportStatus.key),
+    },
     testDescription: buildTestDescription(card),
     expectedResult: buildContextExpected(card),
     workingItems: buildWorkingItems(card, scenarioSteps),
@@ -283,6 +315,7 @@ function buildScenarioStepDetail(step, boardMeta = {}) {
     label: cleanText(step.label) || "Étape utilisateur",
     status,
     statusLabel: getStepStatusLabel(status),
+    statusBadgeLabel: getStepStatusBadgeLabel(status),
     icon: getStepStatusIcon(status),
     tester,
     timestamp: step.timestamp || "",
@@ -305,6 +338,28 @@ function buildReportStats(metrics, cardDetails) {
     failedCount,
     untestedCount: Math.max(0, metrics.totalCards - testedCount),
     scorePercent: metrics.qaScore,
+  };
+}
+
+function buildDetailScope(reportStats) {
+  const detailedCount = reportStats.testedCount;
+  const totalCount = reportStats.totalCards;
+  const omittedCount = Math.max(0, totalCount - detailedCount);
+
+  return {
+    detailedCount,
+    totalCount,
+    omittedCount,
+    summary: omittedCount
+      ? `${detailedCount} carte(s) détaillée(s) sur ${totalCount}. ${omittedCount} carte(s) restent hors détail car elles ne sont pas encore testées ou documentées.`
+      : `Les ${detailedCount} carte(s) du périmètre sont détaillées dans ce document.`,
+    inclusionNote: "Une carte entre dans le détail dès qu'au moins une étape a été jouée, ou si des notes, captures ou un statut QA hors « À lancer » sont déjà présents.",
+    tocIntro: omittedCount
+      ? `${detailedCount} carte(s) détaillée(s) sur ${totalCount}. Les cartes non détaillées restent visibles dans la synthèse globale.`
+      : `Toutes les cartes du périmètre sont détaillées dans ce document.`,
+    detailIntro: omittedCount
+      ? `${detailedCount} carte(s) détaillée(s) dans cette section sur ${totalCount} au total. ${omittedCount} carte(s) non encore testées restent hors détail.`
+      : `${detailedCount} carte(s) détaillée(s) dans cette section. Toutes les cartes du périmètre sont couvertes.`,
   };
 }
 
@@ -501,6 +556,17 @@ function getStepStatusLabel(status) {
   }
 }
 
+function getStepStatusBadgeLabel(status) {
+  switch (status) {
+    case "ok":
+      return "OK";
+    case "ko":
+      return "KO";
+    default:
+      return "NT";
+  }
+}
+
 function getStepStatusIcon(status) {
   switch (status) {
     case "ok":
@@ -510,6 +576,23 @@ function getStepStatusIcon(status) {
     default:
       return "•";
   }
+}
+
+function getReportStatusBadgeLabel(key) {
+  switch (key) {
+    case "validated":
+      return "OK VALIDÉ";
+    case "failed":
+      return "KO ÉCHOUÉ";
+    case "partial":
+      return "EN COURS";
+    default:
+      return "NON TESTÉ";
+  }
+}
+
+function buildSeverityBadgeLabel(severity) {
+  return `${severity.shortLabel} ${severity.label.toUpperCase()}`;
 }
 
 function sortProblemCards(left, right) {
@@ -524,6 +607,43 @@ function sortProblemCards(left, right) {
   }
 
   return left.title.localeCompare(right.title, "fr");
+}
+
+function sortDisplayCards(left, right) {
+  const surfaceDelta = left.surfaceName.localeCompare(right.surfaceName, "fr");
+  if (surfaceDelta !== 0) {
+    return surfaceDelta;
+  }
+
+  const pageDelta = left.pageName.localeCompare(right.pageName, "fr");
+  if (pageDelta !== 0) {
+    return pageDelta;
+  }
+
+  const severityDelta = left.severity.rank - right.severity.rank;
+  if (severityDelta !== 0) {
+    return severityDelta;
+  }
+
+  const statusDelta = getReportStatusSortRank(left.reportStatus.key) - getReportStatusSortRank(right.reportStatus.key);
+  if (statusDelta !== 0) {
+    return statusDelta;
+  }
+
+  return left.title.localeCompare(right.title, "fr");
+}
+
+function getReportStatusSortRank(key) {
+  switch (key) {
+    case "failed":
+      return 0;
+    case "partial":
+      return 1;
+    case "validated":
+      return 2;
+    default:
+      return 3;
+  }
 }
 
 function appendList(lines, title, items = []) {

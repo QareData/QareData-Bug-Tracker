@@ -3,7 +3,7 @@ import {
   escapeHtml,
   formatPercent,
   formatReportDate,
-} from "../utils/format.js?v=20260407-ui-fixes-2";
+} from "../utils/format.js?v=20260407-pdf-phase1-1";
 
 export function buildPrintablePdfDocument(report, options = {}) {
   const baseHref = options.baseHref || window.location.href;
@@ -62,12 +62,13 @@ function renderCoverPage(report) {
         <h3>Résumé global</h3>
         <div class="kpi-grid">
           ${renderKpi("Total cartes", report.reportStats.totalCards)}
-          ${renderKpi("Cartes testées", report.reportStats.testedCount)}
+          ${renderKpi("Cartes détaillées", report.detailScope.detailedCount)}
           ${renderKpi("Validées", report.reportStats.validatedCount)}
           ${renderKpi("Échouées", report.reportStats.failedCount)}
           ${renderKpi("Score QA", `${report.reportStats.scorePercent}%`)}
         </div>
         <p class="summary-text">${escapeHtml(report.summaryText)}</p>
+        ${renderScopeNote(report, "Périmètre du détail")}
       </section>
     </section>
   `;
@@ -78,7 +79,8 @@ function renderTocPage(report) {
     <section class="report-page">
       <p class="eyebrow">Sommaire</p>
       <h2>Table des matières</h2>
-      <p class="page-intro">Chaque carte testée ci-dessous pointe vers sa fiche détaillée dans le document.</p>
+      <p class="page-intro">Chaque carte détaillée ci-dessous pointe vers sa fiche complète dans le document.</p>
+      ${renderScopeNote(report, "Règle d'inclusion")}
       <div class="toc-list">
         ${
           report.tocCards.length
@@ -91,7 +93,7 @@ function renderTocPage(report) {
                       <strong>${escapeHtml(card.title)}</strong>
                       <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
                     </span>
-                    <span class="toc-status status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.label)}</span>
+                    <span class="toc-status status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.badgeLabel || card.reportStatus.label)}</span>
                   </a>
                 `,
               )
@@ -108,6 +110,7 @@ function renderSummaryPage(report) {
     <section class="report-page">
       <p class="eyebrow">Synthèse</p>
       <h2>Vue d'ensemble de la campagne</h2>
+      ${renderScopeNote(report, "Lecture du PDF")}
       <div class="surface-grid">
         ${report.surfaces.map((surface) => renderSurfaceCard(surface)).join("")}
       </div>
@@ -124,6 +127,8 @@ function renderSummaryPage(report) {
           `
           : ""
       }
+
+      ${renderUndetailedCardsSection(report)}
     </section>
   `;
 }
@@ -167,8 +172,9 @@ function renderDetailPages(report) {
     <section class="report-flow">
       <div class="detail-intro">
         <p class="eyebrow">Détail des cartes</p>
-        <h2>Rapport détaillé des scénarios utilisateurs</h2>
-        <p class="page-intro">Chaque carte regroupe le scénario testé, les étapes réellement jouées, les problèmes constatés et les preuves associées.</p>
+        <h2>Rapport détaillé des cartes testées</h2>
+        <p class="page-intro">${escapeHtml(report.detailScope.detailIntro)}</p>
+        <p class="page-intro">${escapeHtml(report.detailScope.inclusionNote)}</p>
       </div>
 
       ${report.detailCards.map((card) => renderDetailCard(card)).join("")}
@@ -186,8 +192,8 @@ function renderDetailCard(card) {
           <p class="detail-scenario">${escapeHtml(card.scenarioTitle)}</p>
         </div>
         <div class="detail-badges">
-          <span class="pill status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.label)}</span>
-          <span class="pill severity-${escapeAttribute(card.severity.tone)}">${escapeHtml(card.severity.label)}</span>
+          <span class="pill status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.badgeLabel || card.reportStatus.label)}</span>
+          <span class="pill severity-${escapeAttribute(card.severity.tone)}">${escapeHtml(card.severity.badgeLabel || card.severity.label)}</span>
         </div>
       </header>
 
@@ -281,7 +287,7 @@ function renderStep(step, index) {
     <div class="step-card step-${escapeAttribute(step.status)}">
       <div class="step-card__head">
         <strong>${index + 1}. ${escapeHtml(step.label)}</strong>
-        <span class="pill status-${escapeAttribute(step.status === "ok" ? "validated" : step.status === "ko" ? "failed" : "untested")}">${escapeHtml(step.statusLabel)}</span>
+        <span class="pill status-${escapeAttribute(step.status === "ok" ? "validated" : step.status === "ko" ? "failed" : "untested")}">${escapeHtml(step.statusBadgeLabel || step.statusLabel)}</span>
       </div>
       <p class="step-stamp">${escapeHtml(step.testStamp || "Étape non testée pour le moment.")}</p>
       ${
@@ -329,6 +335,37 @@ function renderKpi(label, value) {
       <span>${escapeHtml(label)}</span>
       <strong>${escapeHtml(String(value))}</strong>
     </div>
+  `;
+}
+
+function renderScopeNote(report, title) {
+  return `
+    <section class="scope-note">
+      <strong>${escapeHtml(title)}</strong>
+      <p>${escapeHtml(report.detailScope.summary)}</p>
+      <p>${escapeHtml(report.detailScope.inclusionNote)}</p>
+    </section>
+  `;
+}
+
+function renderUndetailedCardsSection(report) {
+  if (!report.undetailedCards.length) {
+    return "";
+  }
+
+  return `
+    <section class="section-block">
+      <h3>Cartes non détaillées</h3>
+      <p class="page-intro">Ces cartes restent visibles dans le périmètre global, mais n'entrent pas encore dans le détail faute d'activité QA documentée.</p>
+      <div class="undetailed-list">
+        ${report.undetailedCards.map((card) => `
+          <article class="undetailed-card">
+            <strong>${escapeHtml(card.title)}</strong>
+            <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
+          </article>
+        `).join("")}
+      </div>
+    </section>
   `;
 }
 
@@ -543,6 +580,25 @@ function buildPrintableStyles() {
       color: #31415f;
     }
 
+    .scope-note {
+      display: grid;
+      gap: 6px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid #dbe4f0;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .scope-note strong {
+      font-size: 12px;
+      color: #28456f;
+    }
+
+    .scope-note p {
+      font-size: 12px;
+      color: #42526c;
+    }
+
     .toc-list,
     .step-list,
     .image-grid {
@@ -634,6 +690,26 @@ function buildPrintableStyles() {
     .surface-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       margin-bottom: 18px;
+    }
+
+    .undetailed-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .undetailed-card {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px dashed #d0dae8;
+      background: #f8fbff;
+      break-inside: avoid;
+    }
+
+    .undetailed-card small {
+      color: #6a7c9b;
     }
 
     .surface-card {
@@ -764,6 +840,14 @@ function buildPrintableStyles() {
       padding: 10px 12px;
       font-size: 12px;
       color: #5d6b85;
+    }
+
+    @media (max-width: 800px) {
+      .surface-grid,
+      .undetailed-list,
+      .image-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     @media print {

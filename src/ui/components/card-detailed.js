@@ -1,10 +1,10 @@
-import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260407-ui-fixes-2";
+import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260407-pdf-phase1-1";
 import {
   getCardChecklistMetrics,
   getCardStatusMeta,
   getSeverityMeta,
   getSourceStatusMeta,
-} from "../../core/state.js?v=20260407-ui-fixes-2";
+} from "../../core/state.js?v=20260407-pdf-phase1-1";
 
 export function renderCardDetailed(surface, page, card, boardMeta = {}) {
   const status = getCardStatusMeta(card.status);
@@ -383,7 +383,8 @@ function buildContextDescription(card) {
     return `Zone plutôt stable : ${card.validatedPoints.join(" ")}`;
   }
 
-  return "Carte de vérification QA à rejouer et documenter.";
+  const scenarioLabel = card.scenarioTitle || card.title || "ce scénario";
+  return `Le flux "${scenarioLabel}" doit être rejoué dans des conditions proches de l'usage réel afin de documenter le comportement observé et les éventuels écarts restants.`;
 }
 
 function buildContextTestHow(card) {

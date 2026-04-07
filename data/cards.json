@@ -70,10 +70,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "Un élément déjà assigné reste visible dans la sélection et peut être repris par erreur."
+              ],
+              "validatedPoints": [
+                "Le chargement de la liste et la multi-sélection sont stables.",
+                "La modal d’assignation s’ouvre sans erreur sur le cas nominal."
+              ],
+              "advice": [
+                "Retirer immédiatement de la sélection disponible les éléments déjà rattachés à la cible."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été beaucoup rejoué sur le back-office manager avec des assignations simples puis en lot.",
+                "expectedResult": "Un élément déjà assigné ne doit plus apparaître comme sélectionnable et le rattachement doit rester cohérent sur toute la liste."
+              }
             },
             {
               "id": "consulter-webview-element",
@@ -121,10 +132,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "La web view de staging ne reflète pas toujours la même base que le manager."
+              ],
+              "validatedPoints": [
+                "L’ouverture du détail élément côté manager est stable.",
+                "Le bouton d’accès à la web view répond correctement."
+              ],
+              "advice": [
+                "Aligner le pointage de la web view avec la bonne base staging avant validation complète."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été joué depuis la liste éléments, puis comparé avec la vue web cible.",
+                "expectedResult": "La web view doit afficher les mêmes informations que le manager sur le même environnement de recette."
+              }
             },
             {
               "id": "dupliquer-elements",
@@ -183,7 +205,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux de duplication a été rejoué sur un élément unique puis en multi-sélection afin de vérifier la copie des champs, le traitement des identifiants uniques et l’apparition correcte des nouveaux éléments dans la liste.",
+                "expectedResult": "La duplication doit reprendre les données attendues, régénérer correctement les champs uniques si nécessaire et créer exactement le bon nombre d’éléments sans erreur ni doublon."
+              }
             },
             {
               "id": "modifier-elements",
@@ -240,9 +266,18 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "validatedPoints": [
+                "L’édition simple de champs texte et listes fonctionne sur le cas nominal.",
+                "La persistance après rafraîchissement a été validée."
+              ],
+              "advice": [
+                "Finir une passe dédiée sur la modification multi-sélection avant clôture de la carte."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été rejoué plusieurs fois sur des éléments existants avec sauvegarde et rechargement.",
+                "expectedResult": "Les modifications doivent être sauvegardées sans perte de données et visibles immédiatement dans la liste et le détail."
+              }
             }
           ]
         },
@@ -305,9 +340,18 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "validatedPoints": [
+                "Création nominale validée avec données complètes.",
+                "Les messages de confirmation et la présence en liste sont cohérents."
+              ],
+              "advice": [
+                "Conserver les contrôles actuels sur les champs requis et l’adresse."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le parcours de création a été couvert sur le cas nominal et sur plusieurs variantes de formulaires.",
+                "expectedResult": "Une organisation complète doit être créée, visible immédiatement et persistée après rafraîchissement."
+              }
             },
             {
               "id": "modifier-organisation",
@@ -364,9 +408,18 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "validatedPoints": [
+                "La modification du modèle et des informations principales est stable.",
+                "Les données restent persistées après rechargement."
+              ],
+              "advice": [
+                "Prévoir seulement une non-régression légère sur les champs annexes avant livraison."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été rejoué avec plusieurs modifications de champs puis contrôle du rendu final.",
+                "expectedResult": "Les modifications doivent être visibles immédiatement, cohérentes et enregistrées durablement."
+              }
             },
             {
               "id": "ajouter-entrees-organisation",
@@ -422,10 +475,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "Certaines dates importées sont mal interprétées dans le flux d’ajout en lot."
+              ],
+              "validatedPoints": [
+                "Le cas nominal unitaire fonctionne.",
+                "La sélection de l’organisation cible est stable."
+              ],
+              "advice": [
+                "Normaliser le parsing des dates avant import massif et renforcer la validation des champs."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "La campagne a couvert l’ajout unitaire puis l’ajout en lot depuis un import.",
+                "expectedResult": "Toutes les entrées importées doivent être créées avec les bonnes dates, les bons champs et sans interprétation erronée."
+              }
             }
           ]
         },
@@ -490,7 +554,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le parcours a été rejoué avec changement de plusieurs champs puis contrôle post-sauvegarde.",
+                "expectedResult": "Une entrée modifiée doit conserver toutes les nouvelles données sans régression visible."
+              }
             },
             {
               "id": "lier-elements-a-entree",
@@ -547,9 +615,18 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "validatedPoints": [
+                "L’ajout d’éléments depuis l’entrée fonctionne.",
+                "Aucun doublon observé sur les cas testés."
+              ],
+              "advice": [
+                "Prévoir seulement une passe légère de non-régression avant clôture finale."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le rattachement a été testé depuis une entrée existante avec plusieurs éléments.",
+                "expectedResult": "Les éléments sélectionnés doivent être ajoutés une seule fois et rester visibles côté entrée."
+              }
             },
             {
               "id": "generer-consulter-portail-entree",
@@ -605,10 +682,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "Le portail cible une base incohérente par rapport à l’environnement de recette."
+              ],
+              "validatedPoints": [
+                "La génération du lien ou portail se déclenche correctement.",
+                "La redirection initiale part bien vers le bon domaine attendu."
+              ],
+              "advice": [
+                "Aligner la base de données du portail avec l’environnement de recette avant validation finale."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été testé depuis le manager jusqu’à l’ouverture effective du portail utilisateur.",
+                "expectedResult": "Le portail généré doit ouvrir la bonne entrée sur la même base de données que l’environnement testé."
+              }
             },
             {
               "id": "supprimer-entree",
@@ -664,10 +752,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "Le portail cible une base incohérente par rapport à l’environnement de recette."
+              ],
+              "validatedPoints": [
+                "La génération du lien ou portail se déclenche correctement.",
+                "La redirection initiale part bien vers le bon domaine attendu."
+              ],
+              "advice": [
+                "Aligner la base de données du portail avec l’environnement de recette avant validation finale."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été testé depuis le manager jusqu’à l’ouverture effective du portail utilisateur.",
+                "expectedResult": "Le portail généré doit ouvrir la bonne entrée sur la même base de données que l’environnement testé."
+              }
             }
           ]
         },
@@ -729,10 +828,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "La suppression complète laisse parfois l’écran dans un état bloqué."
+              ],
+              "validatedPoints": [
+                "La suppression simple d’une entrée isolée fonctionne.",
+                "Les messages de confirmation sont affichés correctement."
+              ],
+              "advice": [
+                "Corriger le reset de l’overlay et revalider le cas de suppression complète d’une organisation."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le parcours a été rejoué sur suppression unitaire puis sur suppression de l’ensemble des entrées restantes.",
+                "expectedResult": "Après suppression, l’écran doit rester utilisable sans overlay résiduel ni blocage des actions."
+              }
             },
             {
               "id": "editer-permissions-utilisateur",
@@ -788,10 +898,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "La liste ne se met pas toujours à jour après invitation et le doublon n’est pas assez protégé."
+              ],
+              "validatedPoints": [
+                "Le formulaire d’invitation est accessible et compréhensible.",
+                "La validation des champs email est correcte sur le cas nominal."
+              ],
+              "advice": [
+                "Ajouter un contrôle anti-doublon côté interface et rafraîchir automatiquement la liste après succès."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le scénario a été joué avec plusieurs emails et avec des cas de doublons déjà existants.",
+                "expectedResult": "Une invitation valide doit être envoyée une seule fois, reflétée immédiatement dans la liste utilisateur."
+              }
             },
             {
               "id": "reset-mot-de-passe-utilisateur",
@@ -848,9 +969,18 @@
                 }
               ],
               "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "validatedPoints": [
+                "Le reset du mot de passe est exécutable sur le cas nominal.",
+                "Le parcours de reprise de session a été validé."
+              ],
+              "advice": [
+                "Prévoir uniquement une non-régression très légère sur les messages de confirmation."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le scénario a été rejoué sur reset puis reconnexion avec nouveau mot de passe.",
+                "expectedResult": "Le reset doit aboutir proprement et permettre une reprise de session cohérente."
+              }
             }
           ]
         },
@@ -912,10 +1042,21 @@
                   "origin": "seed"
                 }
               ],
-              "sourceIssues": [],
-              "validatedPoints": [],
-              "advice": [],
-              "references": []
+              "sourceIssues": [
+                "Un échec serveur reste visible au moment de l’envoi du formulaire."
+              ],
+              "validatedPoints": [
+                "Le formulaire s’affiche bien et les champs sont correctement contrôlés.",
+                "Le parcours est compréhensible côté utilisateur."
+              ],
+              "advice": [
+                "Vérifier le service d’envoi mail et sécuriser le message utilisateur en cas d’échec serveur."
+              ],
+              "references": [],
+              "legacyContext": {
+                "description": "Le formulaire a été testé sur plusieurs contenus et plusieurs états de validation.",
+                "expectedResult": "Un message valide doit être envoyé sans erreur serveur et avec un feedback utilisateur clair."
+              }
             }
           ]
         },
@@ -972,7 +1113,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux d’accès shop a été couvert sur le rôle QareData avec parcours nominal.",
+                "expectedResult": "L’utilisateur QareData doit pouvoir accéder au shop autorisé sans erreur ni écran bloquant."
+              }
             },
             {
               "id": "generer-codes-non-assignes",
@@ -1031,7 +1176,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "La génération a été testée sur des codes virtuels et avec stickers.",
+                "expectedResult": "Le nombre de codes générés et leur disponibilité doivent correspondre exactement à la demande."
+              }
             }
           ]
         },
@@ -1096,7 +1245,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le parcours a été joué sur création simple d’accès extérieur avec contrôle des champs principaux.",
+                "expectedResult": "Un accès extérieur valide doit être créé et immédiatement visible avec les bonnes informations."
+              }
             }
           ]
         },
@@ -1161,7 +1314,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le scénario a été testé sur plusieurs changements de règles puis revérifié après sauvegarde.",
+                "expectedResult": "La politique modifiée doit s’appliquer immédiatement et de manière cohérente."
+              }
             }
           ]
         }
@@ -1217,7 +1374,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux compte a été rejoué sur app mobile avec plusieurs scénarios de session.",
+                "expectedResult": "Les actions de compte doivent être stables, lisibles et sans session fantôme."
+              }
             }
           ]
         },
@@ -1258,7 +1419,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le parcours mobile a été joué sur création puis édition d’intervention.",
+                "expectedResult": "Une intervention doit être créée ou modifiée sans perte de données ni incohérence d’affichage."
+              }
             }
           ]
         },
@@ -1315,7 +1480,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux a été testé sur app mobile avec création de nouvel élément via QR code.",
+                "expectedResult": "Le QR code doit être associé au bon nouvel élément sans ambiguïté ni doublon."
+              }
             }
           ]
         }
@@ -1363,7 +1532,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux webview a été testé avec domaines autorisés puis non autorisés.",
+                "expectedResult": "Un domaine autorisé doit ouvrir les formulaires prévus, un domaine non autorisé doit être bloqué proprement."
+              }
             }
           ]
         },
@@ -1404,7 +1577,11 @@
               "sourceIssues": [],
               "validatedPoints": [],
               "advice": [],
-              "references": []
+              "references": [],
+              "legacyContext": {
+                "description": "Le flux webview a été rejoué sur la création puis la mise à jour d’une intervention en contrôlant la cohérence des dates, des heures et la persistance des changements après sauvegarde.",
+                "expectedResult": "Une intervention créée ou modifiée via la webview doit enregistrer les bonnes dates et heures, afficher les informations attendues et rester cohérente après rechargement."
+              }
             }
           ]
         }

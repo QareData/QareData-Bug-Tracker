@@ -1,5 +1,5 @@
-import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260407-ui-fixes-3";
-import { createStore } from "./core/store.js?v=20260407-ui-fixes-3";
+import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260407-pdf-phase1-1";
+import { createStore } from "./core/store.js?v=20260407-pdf-phase1-1";
 import {
   collapseAllCards,
   addScenarioStep,
@@ -14,13 +14,13 @@ import {
   saveScenarioStepBug,
   setCardField,
   updateBoardMeta,
-} from "./core/state.js?v=20260407-ui-fixes-3";
-import { generatePdfReport } from "./services/pdf.service.js?v=20260407-ui-fixes-3";
-import { downloadMarkdownReport } from "./services/report.service.js?v=20260407-ui-fixes-3";
-import { renderApp } from "./ui/render.js?v=20260407-ui-fixes-3";
-import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260407-ui-fixes-3";
-import { syncSidebarOptions } from "./ui/components/filters.js?v=20260407-ui-fixes-3";
-import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260407-ui-fixes-3";
+} from "./core/state.js?v=20260407-pdf-phase1-1";
+import { generatePdfReport } from "./services/pdf.service.js?v=20260407-pdf-phase1-1";
+import { downloadMarkdownReport } from "./services/report.service.js?v=20260407-pdf-phase1-1";
+import { renderApp } from "./ui/render.js?v=20260407-pdf-phase1-1";
+import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260407-pdf-phase1-1";
+import { syncSidebarOptions } from "./ui/components/filters.js?v=20260407-pdf-phase1-1";
+import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260407-pdf-phase1-1";
 
 const elements = getElements();
 let activeModalCardId = null;

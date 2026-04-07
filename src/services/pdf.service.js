@@ -1,12 +1,12 @@
-import { PDF_LIBRARY_SOURCES } from "../utils/constants.js?v=20260407-ui-fixes-2";
+import { PDF_LIBRARY_SOURCES } from "../utils/constants.js?v=20260407-pdf-phase1-1";
 import {
   cleanText,
   formatFileStamp,
   formatReportDate,
   truncateText,
-} from "../utils/format.js?v=20260407-ui-fixes-2";
-import { buildReportModel } from "./report.service.js?v=20260407-ui-fixes-2";
-import { buildPrintablePdfDocument } from "./pdf.template.js?v=20260407-ui-fixes-2";
+} from "../utils/format.js?v=20260407-pdf-phase1-1";
+import { buildReportModel } from "./report.service.js?v=20260407-pdf-phase1-1";
+import { buildPrintablePdfDocument } from "./pdf.template.js?v=20260407-pdf-phase1-1";
 
 const PAGE_MARGIN_X = 46;
 const PAGE_MARGIN_TOP = 54;
@@ -288,7 +288,7 @@ function drawCoverPage(pdf, layout, report, logoAsset) {
   const kpiWidth = (layout.contentWidth - kpiGap * 4) / 5;
   const kpis = [
     ["Cartes totales", String(report.reportStats.totalCards), [71, 85, 105]],
-    ["Cartes testées", String(report.reportStats.testedCount), [37, 99, 235]],
+    ["Cartes détaillées", String(report.detailScope.detailedCount), [37, 99, 235]],
     ["Validées", String(report.reportStats.validatedCount), [5, 150, 105]],
     ["Échouées", String(report.reportStats.failedCount), [220, 38, 38]],
     ["Score QA", `${report.reportStats.scorePercent}%`, [37, 99, 235]],
@@ -301,9 +301,24 @@ function drawCoverPage(pdf, layout, report, logoAsset) {
 
   y += 150;
 
+  const summaryLines = pdf.splitTextToSize(report.summaryText, layout.contentWidth - 44);
+  const detailScopeSummaryLines = pdf.splitTextToSize(
+    report.detailScope.summary,
+    layout.contentWidth - 44,
+  );
+  const detailScopeRuleLines = pdf.splitTextToSize(
+    report.detailScope.inclusionNote,
+    layout.contentWidth - 44,
+  );
+  const summaryBoxHeight = 84
+    + summaryLines.length * 14
+    + detailScopeSummaryLines.length * 13
+    + detailScopeRuleLines.length * 13
+    + 18;
+
   pdf.setDrawColor(223, 231, 243);
   pdf.setFillColor(255, 255, 255);
-  pdf.roundedRect(layout.left, y, layout.contentWidth, 124, 18, 18, "FD");
+  pdf.roundedRect(layout.left, y, layout.contentWidth, summaryBoxHeight, 18, 18, "FD");
 
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
@@ -313,8 +328,21 @@ function drawCoverPage(pdf, layout, report, logoAsset) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(12);
   pdf.setTextColor(51, 65, 85);
-  const summaryLines = pdf.splitTextToSize(report.summaryText, layout.contentWidth - 44);
   pdf.text(summaryLines, layout.left + 22, y + 48);
+
+  let scopeY = y + 48 + summaryLines.length * 14 + 10;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  pdf.setTextColor(37, 99, 235);
+  pdf.text("PÉRIMÈTRE DU DÉTAIL", layout.left + 22, scopeY);
+  scopeY += 16;
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(71, 85, 105);
+  pdf.text(detailScopeSummaryLines, layout.left + 22, scopeY);
+  scopeY += detailScopeSummaryLines.length * 13 + 4;
+  pdf.text(detailScopeRuleLines, layout.left + 22, scopeY);
 }
 
 function renderCoverMeta(pdf, x, y, width, label, value) {
@@ -358,9 +386,9 @@ async function drawDetailPages(pdf, layout, report) {
   drawDetailIntro(state, report);
 
   if (!report.detailCards.length) {
-    drawInfoBox(state, "Aucune carte testée", [
-      "Aucune carte n'est actuellement marquée comme testée dans le board.",
-      "Renseignez des étapes validées ou en échec, des notes ou des captures avant de générer un rapport d'exécution.",
+    drawInfoBox(state, "Aucune carte détaillée", [
+      report.detailScope.summary,
+      report.detailScope.inclusionNote,
     ]);
     return cardPageMap;
   }
@@ -422,7 +450,7 @@ function drawDetailIntro(state, report) {
   pdf.setFontSize(12);
   pdf.setTextColor(88, 102, 122);
   const introLines = pdf.splitTextToSize(
-    `${report.detailCards.length} carte(s) détaillée(s) dans cette section. Chaque fiche rassemble le scénario utilisateur, les étapes réellement testées, les constats observés, les éventuels bugs, les notes et les captures présentes.`,
+    `${report.detailScope.detailIntro} Chaque fiche rassemble le scénario utilisateur, les étapes réellement testées, les constats observés, les éventuels bugs, les notes et les captures présentes. ${report.detailScope.inclusionNote}`,
     layout.contentWidth,
   );
   pdf.text(introLines, layout.left, state.y);
@@ -462,7 +490,10 @@ async function drawCardSection(state, card) {
 
 function drawCardHeader(state, card) {
   const { pdf, layout } = state;
-  const pillWidth = 92;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(10);
+  const statusBadgeLabel = card.reportStatus.badgeLabel || card.reportStatus.label;
+  const pillWidth = Math.max(96, pdf.getTextWidth(statusBadgeLabel.toUpperCase()) + 24);
   const titleMaxWidth = layout.contentWidth - pillWidth - 34;
   const titleLines = pdf.splitTextToSize(card.title, titleMaxWidth);
   const headerHeight = 54 + titleLines.length * 18;
@@ -490,7 +521,7 @@ function drawCardHeader(state, card) {
     state.y + 16,
     pillWidth - 8,
     24,
-    card.reportStatus.label,
+    statusBadgeLabel,
     tone,
   );
 
@@ -499,7 +530,7 @@ function drawCardHeader(state, card) {
   pdf.setTextColor(71, 85, 105);
   const metaLine = [
     `Statut QA : ${card.status.label}`,
-    `Criticité : ${card.severity.label}`,
+    `Criticité : ${card.severity.badgeLabel || card.severity.label}`,
     `Testeur : ${card.tester || "Non renseigné"}`,
     `Environnement : ${card.environment || "Non renseigné"}`,
   ].join("   ·   ");
@@ -624,7 +655,7 @@ function drawScenarioSection(state, card) {
       state.y + 8,
       badgeWidth - 10,
       18,
-      item.statusLabel,
+      item.statusBadgeLabel || item.statusLabel,
       getStatusTone(item.status === "ok" ? "validated" : item.status === "ko" ? "failed" : "untested"),
     );
 
@@ -831,10 +862,11 @@ function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
     pdf.setFontSize(12);
     pdf.setTextColor(88, 102, 122);
     const intro = pageIndex === 0
-      ? "Chaque entrée renvoie vers la fiche correspondante dans le document."
+      ? `${report.detailScope.tocIntro} Chaque entrée renvoie vers la fiche correspondante dans le document.`
       : "Suite du sommaire des cartes testées.";
-    pdf.text(intro, layout.left, y);
-    y += 24;
+    const introLines = pdf.splitTextToSize(intro, layout.contentWidth);
+    pdf.text(introLines, layout.left, y);
+    y += introLines.length * 14 + 10;
 
     const rows = cards.slice(pageIndex * TOC_ROWS_PER_PAGE, (pageIndex + 1) * TOC_ROWS_PER_PAGE);
     if (!rows.length) {
@@ -856,16 +888,26 @@ function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(9);
       pdf.setTextColor(100, 116, 139);
-      pdf.text(`${card.surfaceName} · ${card.pageName}`, layout.left + 232, y + 17);
+      pdf.text(truncateText(`${card.surfaceName} · ${card.pageName}`, 34), layout.left + 232, y + 17);
 
       const statusTone = getStatusTone(card.reportStatus.key);
-      drawSmallBadge(pdf, layout.right - 116, y + 5, 58, 18, card.reportStatus.label, statusTone);
+      const badgeLabel = card.reportStatus.badgeLabel || card.reportStatus.label;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(8.5);
+      const badgeWidth = Math.max(58, pdf.getTextWidth(badgeLabel.toUpperCase()) + 18);
 
       const targetPage = cardPageMap[card.id];
+      const pageLabel = `p. ${targetPage || "-"}`;
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+      const pageTextWidth = pdf.getTextWidth(pageLabel);
+      const badgeX = layout.right - 14 - pageTextWidth - 14 - badgeWidth;
+      drawSmallBadge(pdf, badgeX, y + 5, badgeWidth, 18, badgeLabel, statusTone);
+
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(10);
       pdf.setTextColor(37, 99, 235);
-      pdf.text(`p. ${targetPage || "-"}`, layout.right - 20, y + 17, { align: "right" });
+      pdf.text(pageLabel, layout.right - 14, y + 17, { align: "right" });
 
       if (targetPage) {
         pdf.link(layout.left, y, layout.contentWidth, rowHeight, { pageNumber: targetPage });
