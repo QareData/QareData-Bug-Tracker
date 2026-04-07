@@ -16,7 +16,6 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
   const testerValue = card.tester || boardMeta.tester || "";
   const environmentValue = card.environment || boardMeta.environment || "";
   const contextDescription = buildContextDescription(card);
-  const contextTestHow = buildContextTestHow(card);
   const contextExpected = buildContextExpected(card);
 
   return `
@@ -103,7 +102,6 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
 
           <div class="card-modal__context-grid">
             ${renderContextBlock("Description", contextDescription)}
-            ${renderContextBlock("Comment tester", contextTestHow)}
             ${renderContextBlock("Résultat attendu", contextExpected)}
           </div>
         </section>
@@ -375,27 +373,20 @@ function renderScreenshot(shot) {
 }
 
 function buildContextDescription(card) {
+  if (card.legacyContext?.description) {
+    return card.legacyContext.description;
+  }
+
   if (card.sourceIssues.length) {
-    return `Points de vigilance : ${card.sourceIssues.join(" ")}`;
+    return card.sourceIssues.join("\n");
   }
 
   if (card.validatedPoints.length) {
-    return `Zone plutôt stable : ${card.validatedPoints.join(" ")}`;
+    return card.validatedPoints.join("\n");
   }
 
   const scenarioLabel = card.scenarioTitle || card.title || "ce scénario";
   return `Le flux "${scenarioLabel}" doit être rejoué dans des conditions proches de l'usage réel afin de documenter le comportement observé et les éventuels écarts restants.`;
-}
-
-function buildContextTestHow(card) {
-  if (card.legacyContext?.testHow) {
-    return card.legacyContext.testHow;
-  }
-
-  return card.checklist
-    .slice(0, 2)
-    .map((item) => item.label)
-    .join(" ");
 }
 
 function buildContextExpected(card) {
