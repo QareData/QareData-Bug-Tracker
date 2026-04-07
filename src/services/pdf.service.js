@@ -1,12 +1,12 @@
-import { PDF_LIBRARY_SOURCES } from "../utils/constants.js?v=20260403-user-scenario-2";
+import { PDF_LIBRARY_SOURCES } from "../utils/constants.js?v=20260407-ui-fixes-2";
 import {
   cleanText,
   formatFileStamp,
   formatReportDate,
   truncateText,
-} from "../utils/format.js?v=20260403-user-scenario-2";
-import { buildReportModel } from "./report.service.js?v=20260403-user-scenario-2";
-import { buildPrintablePdfDocument } from "./pdf.template.js?v=20260403-user-scenario-2";
+} from "../utils/format.js?v=20260407-ui-fixes-2";
+import { buildReportModel } from "./report.service.js?v=20260407-ui-fixes-2";
+import { buildPrintablePdfDocument } from "./pdf.template.js?v=20260407-ui-fixes-2";
 
 const PAGE_MARGIN_X = 46;
 const PAGE_MARGIN_TOP = 54;

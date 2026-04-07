@@ -5,23 +5,33 @@ import {
   LEGACY_STORAGE_KEYS,
   STORAGE_KEY,
   STORAGE_VERSION,
-} from "../utils/constants.js?v=20260403-user-scenario-2";
-import { cleanText, generateId } from "../utils/format.js?v=20260403-user-scenario-2";
-import { cloneBoard, normalizeBoardData } from "./state.js?v=20260403-user-scenario-2";
+} from "../utils/constants.js?v=20260407-ui-fixes-2";
+import { cleanText, generateId } from "../utils/format.js?v=20260407-ui-fixes-2";
+import { cloneBoard, normalizeBoardData } from "./state.js?v=20260407-ui-fixes-2";
 
 export async function loadCards() {
-  const response = await fetch(DEFAULT_DATA_PATH);
-  if (!response.ok) {
-    throw new Error(`Impossible de charger ${DEFAULT_DATA_PATH}`);
+  const currentState = readStoredBoard(STORAGE_KEY);
+  const legacy = readLegacyBoard();
+  let seed;
+
+  try {
+    seed = await loadSeedBoard();
+  } catch (error) {
+    if (currentState) {
+      return normalizeBoardData(currentState);
+    }
+
+    if (legacy) {
+      return normalizeBoardData(legacy);
+    }
+
+    throw error;
   }
 
-  const seed = normalizeBoardData(await response.json());
-  const currentState = readStoredBoard(STORAGE_KEY);
   if (currentState) {
     return mergeBoards(seed, currentState);
   }
 
-  const legacy = readLegacyBoard();
   if (legacy) {
     return mergeBoards(seed, legacy);
   }
@@ -90,6 +100,34 @@ function readLegacyBoard() {
   }
 
   return null;
+}
+
+async function loadSeedBoard() {
+  const candidateUrls = [
+    new URL("../../data/cards.json", import.meta.url).toString(),
+    DEFAULT_DATA_PATH,
+  ];
+  let lastError = null;
+
+  for (const url of candidateUrls) {
+    try {
+      const response = await fetch(url, { cache: "no-store" });
+      if (!response.ok) {
+        lastError = new Error(`Impossible de charger ${url} (${response.status})`);
+        continue;
+      }
+
+      return normalizeBoardData(await response.json());
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw new Error(
+    lastError instanceof Error
+      ? lastError.message
+      : `Impossible de charger ${DEFAULT_DATA_PATH}`,
+  );
 }
 
 function migrateLegacyPayload(rawLegacy = {}) {

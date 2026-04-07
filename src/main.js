@@ -1,9 +1,10 @@
-import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260403-user-scenario-2";
-import { createStore } from "./core/store.js?v=20260403-user-scenario-2";
+import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260407-ui-fixes-3";
+import { createStore } from "./core/store.js?v=20260407-ui-fixes-3";
 import {
   collapseAllCards,
   addScenarioStep,
   addScreenshot,
+  clearScenarioStepResult,
   createInitialAppState,
   createManualCard,
   deleteCard,
@@ -13,16 +14,17 @@ import {
   saveScenarioStepBug,
   setCardField,
   updateBoardMeta,
-} from "./core/state.js?v=20260403-user-scenario-2";
-import { generatePdfReport } from "./services/pdf.service.js?v=20260403-user-scenario-2";
-import { downloadMarkdownReport } from "./services/report.service.js?v=20260403-user-scenario-2";
-import { renderApp } from "./ui/render.js?v=20260403-user-scenario-2";
-import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260403-user-scenario-2";
-import { syncSidebarOptions } from "./ui/components/filters.js?v=20260403-user-scenario-2";
-import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260403-user-scenario-2";
+} from "./core/state.js?v=20260407-ui-fixes-3";
+import { generatePdfReport } from "./services/pdf.service.js?v=20260407-ui-fixes-3";
+import { downloadMarkdownReport } from "./services/report.service.js?v=20260407-ui-fixes-3";
+import { renderApp } from "./ui/render.js?v=20260407-ui-fixes-3";
+import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260407-ui-fixes-3";
+import { syncSidebarOptions } from "./ui/components/filters.js?v=20260407-ui-fixes-3";
+import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260407-ui-fixes-3";
 
 const elements = getElements();
 let activeModalCardId = null;
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "qa-sidebar-collapsed";
 const store = createStore({
   board: null,
   filters: {
@@ -31,7 +33,6 @@ const store = createStore({
     page: "all",
     status: "all",
     severity: "all",
-    onlyBugs: false,
     onlyNotValidated: false,
     hideDone: false,
   },
@@ -40,15 +41,18 @@ const store = createStore({
 init().catch((error) => {
   console.error(error);
   updateSaveStatus("Erreur au chargement du QA board.");
+  const errorDetail = error instanceof Error ? error.message : "Erreur inconnue.";
   elements.boardRoot.innerHTML = `
     <div class="empty-state">
       Impossible de charger les données du board. Vérifie la présence de <code>data/cards.json</code>.
+      <p>${errorDetail}</p>
     </div>
   `;
 });
 
 async function init() {
   initTheme();
+  initSidebarState();
   const board = collapseAllCards(await loadCards());
   store.setState(createInitialAppState(board));
   saveCards(board);
@@ -67,44 +71,38 @@ function bindEvents() {
     });
   }
 
-  elements.surfaceFilter.addEventListener("change", (event) => {
+  elements.surfaceFilter?.addEventListener("change", (event) => {
     updateFilters({
       surface: event.target.value,
       page: "all",
     });
   });
 
-  elements.pageFilter.addEventListener("change", (event) => {
+  elements.pageFilter?.addEventListener("change", (event) => {
     updateFilters({
       page: event.target.value,
     });
   });
 
-  elements.statusFilter.addEventListener("change", (event) => {
+  elements.statusFilter?.addEventListener("change", (event) => {
     updateFilters({
       status: event.target.value,
     });
   });
 
-  elements.severityFilter.addEventListener("change", (event) => {
+  elements.severityFilter?.addEventListener("change", (event) => {
     updateFilters({
       severity: event.target.value,
     });
   });
 
-  elements.onlyBugsInput.addEventListener("change", (event) => {
-    updateFilters({
-      onlyBugs: event.target.checked,
-    });
-  });
-
-  elements.onlyNotValidatedInput.addEventListener("change", (event) => {
+  elements.onlyNotValidatedInput?.addEventListener("change", (event) => {
     updateFilters({
       onlyNotValidated: event.target.checked,
     });
   });
 
-  elements.hideDoneInput.addEventListener("change", (event) => {
+  elements.hideDoneInput?.addEventListener("change", (event) => {
     updateFilters({
       hideDone: event.target.checked,
     });
@@ -116,13 +114,14 @@ function bindEvents() {
   });
 
   elements.createCardButton.addEventListener("click", handleCreateCard);
-  elements.exportButton.addEventListener("click", handleExportJson);
-  elements.importButton.addEventListener("click", () => elements.importInput.click());
-  elements.importInput.addEventListener("change", handleImportJson);
+  elements.exportButton?.addEventListener("click", handleExportJson);
+  elements.importButton?.addEventListener("click", () => elements.importInput?.click());
+  elements.importInput?.addEventListener("change", handleImportJson);
   elements.generateMarkdownButton.addEventListener("click", handleGenerateMarkdown);
   elements.generatePdfButton.addEventListener("click", handleGeneratePdf);
   elements.resetButton.addEventListener("click", handleReset);
   elements.themeButton?.addEventListener("click", handleThemeToggle);
+  elements.sidebarRoot?.addEventListener("click", handleSidebarNavigationClick);
 
   elements.modalClose?.addEventListener("click", closeCardModal);
   elements.modalOverlay?.addEventListener("click", (event) => {
@@ -336,6 +335,18 @@ function handleBoardClick(event) {
       case "mark-step-ok": {
         const scenarioRow = actionTarget.closest("[data-step-id]");
         if (!scenarioRow) return;
+        if (scenarioRow.dataset.stepStatus === "ok") {
+          updateBoard(
+            (board) =>
+              clearScenarioStepResult(
+                board,
+                cardId,
+                scenarioRow.dataset.stepId,
+              ),
+            "Étape remise à tester.",
+          );
+          break;
+        }
         updateBoard(
           (board) =>
             markScenarioStepOk(
@@ -352,19 +363,32 @@ function handleBoardClick(event) {
       case "mark-step-ko": {
         const scenarioRow = actionTarget.closest("[data-step-id]");
         if (!scenarioRow) return;
-        scenarioRow.classList.add("is-bug-open");
-        scenarioRow.querySelector(".qa-step__bug-description")?.focus();
+        if (scenarioRow.dataset.stepStatus === "ko") {
+          updateBoard(
+            (board) =>
+              clearScenarioStepResult(
+                board,
+                cardId,
+                scenarioRow.dataset.stepId,
+              ),
+            "Étape remise à tester.",
+          );
+          break;
+        }
+
+        if (scenarioRow.classList.contains("is-bug-open")) {
+          closeScenarioBugForm(scenarioRow);
+          break;
+        }
+
+        openScenarioBugForm(scenarioRow);
         break;
       }
 
       case "cancel-step-ko": {
         const scenarioRow = actionTarget.closest("[data-step-id]");
         if (!scenarioRow) return;
-        if (scenarioRow.dataset.stepStatus === "ko") {
-          scenarioRow.classList.remove("is-bug-invalid");
-        } else {
-          scenarioRow.classList.remove("is-bug-open", "is-bug-invalid");
-        }
+        closeScenarioBugForm(scenarioRow);
         break;
       }
 
@@ -380,7 +404,7 @@ function handleBoardClick(event) {
               input.setAttribute("aria-invalid", "true");
             }
           });
-          updateSaveStatus("Complète la description du bug, le comportement observé et le résultat attendu.");
+          updateSaveStatus("Complète la description du bug et le comportement observé.");
           return;
         }
 
@@ -707,19 +731,55 @@ function buildHeaderSubtitle(meta) {
 function initTheme() {
   const isDark = localStorage.getItem("theme") === "dark";
   document.body.classList.toggle("dark-mode", isDark);
-  syncThemeIcon(isDark);
+  syncThemeState(isDark);
 }
 
 function handleThemeToggle() {
   const isDark = document.body.classList.toggle("dark-mode");
   localStorage.setItem("theme", isDark ? "dark" : "light");
-  syncThemeIcon(isDark);
+  syncThemeState(isDark);
 }
 
-function syncThemeIcon(isDark) {
+function syncThemeState(isDark) {
+  document.documentElement.style.colorScheme = isDark ? "dark" : "light";
   if (elements.themeIcon) {
     elements.themeIcon.textContent = isDark ? "☀" : "☾";
   }
+  if (elements.themeButton) {
+    const label = isDark ? "Activer le mode clair" : "Activer le mode sombre";
+    elements.themeButton.setAttribute("title", label);
+    elements.themeButton.setAttribute("aria-label", label);
+    elements.themeButton.setAttribute("aria-pressed", isDark ? "true" : "false");
+  }
+}
+
+function initSidebarState() {
+  const isCollapsed = localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === "true";
+  document.body.classList.toggle("sidebar-collapsed", isCollapsed);
+}
+
+function toggleSidebarCollapsed() {
+  const isCollapsed = document.body.classList.toggle("sidebar-collapsed");
+  localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isCollapsed));
+  render();
+}
+
+function handleSidebarNavigationClick(event) {
+  const toggleButton = event.target.closest("#sidebar-toggle");
+  if (toggleButton) {
+    toggleSidebarCollapsed();
+    return;
+  }
+
+  const navButton = event.target.closest("[data-nav-surface]");
+  if (!navButton) {
+    return;
+  }
+
+  updateFilters({
+    surface: navButton.dataset.navSurface || "all",
+    page: navButton.dataset.navPage || "all",
+  });
 }
 
 function findCardContext(board, cardId) {
@@ -786,13 +846,15 @@ function resolveTesterName(cardId) {
 }
 
 function readScenarioBugPayload(stepRow) {
+  const defaultExpectedResult = stepRow.querySelector(".qa-step__bug-form")?.dataset.defaultExpectedResult
+    || "Le scénario doit être cohérent, stable et exploitable sans blocage majeur.";
+
   return {
     description:
       stepRow.querySelector(".qa-step__bug-description")?.value || "",
     observedBehavior:
       stepRow.querySelector(".qa-step__bug-observed")?.value || "",
-    expectedResult:
-      stepRow.querySelector(".qa-step__bug-expected")?.value || "",
+    expectedResult: defaultExpectedResult,
   };
 }
 
@@ -802,6 +864,26 @@ function hasCompleteBugPayload(payload) {
     && payload.observedBehavior.trim()
     && payload.expectedResult.trim(),
   );
+}
+
+function openScenarioBugForm(stepRow) {
+  stepRow.classList.remove("is-ok", "is-bug-invalid");
+  stepRow.classList.add("is-bug-open");
+  stepRow.querySelectorAll(".qa-step__bug-input").forEach((input) => {
+    input.removeAttribute("aria-invalid");
+  });
+  stepRow.querySelector(".qa-step__bug-description")?.focus();
+}
+
+function closeScenarioBugForm(stepRow) {
+  stepRow.classList.remove("is-bug-open", "is-bug-invalid");
+  stepRow.querySelectorAll(".qa-step__bug-input").forEach((input) => {
+    input.removeAttribute("aria-invalid");
+  });
+
+  if (stepRow.dataset.stepStatus === "ok") {
+    stepRow.classList.add("is-ok");
+  }
 }
 
 function updateSaveStatus(message) {
@@ -818,6 +900,8 @@ function getElements() {
   return {
     saveStatus: document.querySelector("#save-status"),
     summaryRoot: document.querySelector("#summary-root"),
+    sidebarNavRoot: document.querySelector("#sidebar-nav-root"),
+    sidebarRoot: document.querySelector("#sidebar-nav-root"),
     boardRoot: document.querySelector("#board-root"),
 
     projectInput: document.querySelector("#project-name"),
@@ -831,7 +915,6 @@ function getElements() {
     pageFilter: document.querySelector("#page-filter"),
     statusFilter: document.querySelector("#status-filter"),
     severityFilter: document.querySelector("#severity-filter"),
-    onlyBugsInput: document.querySelector("#only-bugs"),
     onlyNotValidatedInput: document.querySelector("#only-not-validated"),
     hideDoneInput: document.querySelector("#hide-done"),
 

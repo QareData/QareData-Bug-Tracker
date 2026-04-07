@@ -1,10 +1,10 @@
-import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260403-user-scenario-2";
+import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260407-ui-fixes-2";
 import {
   getCardChecklistMetrics,
   getCardStatusMeta,
   getSeverityMeta,
   getSourceStatusMeta,
-} from "../../core/state.js?v=20260403-user-scenario-2";
+} from "../../core/state.js?v=20260407-ui-fixes-2";
 
 export function renderCardDetailed(surface, page, card, boardMeta = {}) {
   const status = getCardStatusMeta(card.status);
@@ -120,7 +120,7 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
           <ul class="qa-scenario-list">
             ${
               card.checklist.length
-                ? card.checklist.map((item, index) => renderScenarioStep(item, index)).join("")
+                ? card.checklist.map((item, index) => renderScenarioStep(item, index, contextExpected)).join("")
                 : `<li class="qa-empty-line">Aucune étape utilisateur sur cette carte.</li>`
             }
           </ul>
@@ -139,56 +139,41 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
       </div>
 
       <div class="card-modal__detail-layout">
-        <section class="qa-panel qa-panel--source">
+        <label class="field textarea-field card-modal__notes-panel">
+          <span>Notes QA</span>
+          <textarea
+            class="card-textarea"
+            data-field="notes"
+            placeholder="Constats, reproduction, impact, risques..."
+          >${escapeHtml(card.notes)}</textarea>
+        </label>
+
+        <section class="qa-panel qa-panel--upload">
           <div class="qa-panel__head">
-            <h5>Historique source</h5>
-            <span>Repères du board initial</span>
+            <h5>Captures et preuves</h5>
+            <span>${screenshotCount} capture${screenshotCount > 1 ? "s" : ""}</span>
           </div>
 
-          <div class="qa-source-grid">
-            ${renderSourceBlock("Points à corriger", card.sourceIssues)}
-            ${renderSourceBlock("Points stables", card.validatedPoints)}
-            ${renderSourceBlock("Conseils", card.advice)}
-          </div>
-        </section>
-
-        <div class="card-modal__side-stack">
-          <label class="field textarea-field card-modal__notes-panel">
-            <span>Notes QA</span>
-            <textarea
-              class="card-textarea"
-              data-field="notes"
-              placeholder="Constats, reproduction, impact, risques..."
-            >${escapeHtml(card.notes)}</textarea>
+          <label class="qa-dropzone" data-dropzone>
+            <input
+              class="screenshot-input"
+              type="file"
+              accept="image/*"
+              multiple
+              hidden
+            />
+            <strong>Importer des captures</strong>
+            <span>Glisser-déposer ici ou cliquer pour choisir une image.</span>
           </label>
 
-          <section class="qa-panel qa-panel--upload">
-            <div class="qa-panel__head">
-              <h5>Captures et preuves</h5>
-              <span>${screenshotCount} capture${screenshotCount > 1 ? "s" : ""}</span>
-            </div>
-
-            <label class="qa-dropzone" data-dropzone>
-              <input
-                class="screenshot-input"
-                type="file"
-                accept="image/*"
-                multiple
-                hidden
-              />
-              <strong>Importer des captures</strong>
-              <span>Glisser-déposer ici ou cliquer pour choisir une image.</span>
-            </label>
-
-            <div class="qa-shot-grid">
-              ${
-                screenshotCount
-                  ? card.screenshots.map((shot) => renderScreenshot(shot)).join("")
-                  : `<div class="qa-empty-shot">Aucune capture pour le moment.</div>`
-              }
-            </div>
-          </section>
-        </div>
+          <div class="qa-shot-grid">
+            ${
+              screenshotCount
+                ? card.screenshots.map((shot) => renderScreenshot(shot)).join("")
+                : `<div class="qa-empty-shot">Aucune capture pour le moment.</div>`
+            }
+          </div>
+        </section>
       </div>
 
       ${
@@ -229,7 +214,7 @@ function renderSelectOption(currentValue, value, label) {
   `;
 }
 
-function renderScenarioStep(item, index) {
+function renderScenarioStep(item, index, defaultExpectedResult) {
   const isOk = item.status === "ok";
   const isKo = item.status === "ko";
   const stateLabel = isOk ? "Validée" : isKo ? "En échec" : "À tester";
@@ -286,7 +271,7 @@ function renderScenarioStep(item, index) {
         </div>
       </div>
 
-      <div class="qa-step__bug-form">
+      <div class="qa-step__bug-form" data-default-expected-result="${escapeAttribute(defaultExpectedResult)}">
         <div class="qa-step__bug-grid">
           <label class="field">
             <span>Description du bug</span>
@@ -302,16 +287,9 @@ function renderScenarioStep(item, index) {
               placeholder="Que s'est-il passé réellement ?"
             >${escapeHtml(item.bug?.observedBehavior || "")}</textarea>
           </label>
-          <label class="field">
-            <span>Résultat attendu</span>
-            <textarea
-              class="card-textarea qa-step__bug-input qa-step__bug-expected"
-              placeholder="Quel résultat aurait dû être obtenu ?"
-            >${escapeHtml(item.bug?.expectedResult || "")}</textarea>
-          </label>
         </div>
 
-        <p class="qa-step__bug-hint">Ces 3 champs sont obligatoires pour enregistrer une étape en échec.</p>
+        <p class="qa-step__bug-hint">Renseigne la description du bug et le comportement observé. Le résultat attendu est repris depuis le contexte affiché au-dessus.</p>
 
         <div class="qa-step__bug-actions">
           <button class="button secondary small" type="button" data-action="save-step-bug">
@@ -368,21 +346,6 @@ function formatStepTimestamp(value) {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function renderSourceBlock(title, items) {
-  return `
-    <section class="qa-source-block">
-      <h6>${escapeHtml(title)}</h6>
-      <ul>
-        ${
-          items.length
-            ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
-            : "<li>Aucun élément.</li>"
-        }
-      </ul>
-    </section>
-  `;
 }
 
 function renderContextBlock(title, value) {

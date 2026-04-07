@@ -1,7 +1,7 @@
 import {
   getPageOptions,
   getSurfaceOptions,
-} from "../../core/state.js?v=20260403-user-scenario-2";
+} from "../../core/state.js?v=20260407-ui-fixes-2";
 
 export function syncSidebarOptions(board, elements, filters) {
   hydrateSelect(
@@ -24,6 +24,10 @@ export function syncSidebarOptions(board, elements, filters) {
 }
 
 function hydrateSelect(select, options, selectedValue) {
+  if (!select) {
+    return;
+  }
+
   const currentSignature = options.map((option) => `${option.id}:${option.name}`).join("|");
   if (select.dataset.signature !== currentSignature) {
     select.innerHTML = options
