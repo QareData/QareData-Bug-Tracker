@@ -6,7 +6,7 @@ import {
   SOURCE_STATUS_META,
   STATUS_META,
   SURFACE_ORDER,
-} from "../utils/constants.js?v=20260403-user-scenario-2";
+} from "../utils/constants.js?v=20260407-ui-fixes-2";
 import {
   cleanText,
   extractMentions,
@@ -15,7 +15,7 @@ import {
   slugify,
   sumBy,
   uniqueTexts,
-} from "../utils/format.js?v=20260403-user-scenario-2";
+} from "../utils/format.js?v=20260407-ui-fixes-2";
 
 export function normalizeBoardData(rawBoard = {}) {
   const input = rawBoard && typeof rawBoard === "object" ? rawBoard : {};
@@ -47,7 +47,6 @@ export function createInitialAppState(board) {
       page: "all",
       status: "all",
       severity: "all",
-      onlyBugs: false,
       onlyNotValidated: false,
       hideDone: false,
     },
@@ -158,7 +157,6 @@ export function matchesFilters(entry, filters) {
   const statusMatch = filters.status === "all" || card.status === filters.status;
   const severityMatch =
     filters.severity === "all" || card.severity === filters.severity;
-  const onlyBugsMatch = !filters.onlyBugs || isBugCard(card);
   const onlyNotValidatedMatch =
     !filters.onlyNotValidated || card.status !== "done";
   const hideDoneMatch = !filters.hideDone || card.status !== "done";
@@ -169,7 +167,6 @@ export function matchesFilters(entry, filters) {
     && pageMatch
     && statusMatch
     && severityMatch
-    && onlyBugsMatch
     && onlyNotValidatedMatch
     && hideDoneMatch
   );
@@ -402,6 +399,27 @@ export function markScenarioStepOk(board, cardId, checklistId, tester = "") {
         }
         : item,
     );
+    return syncCardStatus({
+      ...card,
+      checklist: nextChecklist,
+    });
+  });
+}
+
+export function clearScenarioStepResult(board, cardId, checklistId) {
+  return updateCard(board, cardId, (card) => {
+    const nextChecklist = card.checklist.map((item) =>
+      item.id === checklistId
+        ? {
+          ...item,
+          status: "pending",
+          bug: createEmptyStepBug(),
+          timestamp: "",
+          tester: "",
+        }
+        : item,
+    );
+
     return syncCardStatus({
       ...card,
       checklist: nextChecklist,
