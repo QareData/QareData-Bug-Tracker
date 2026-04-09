@@ -19,9 +19,11 @@
       <!-- Logo et Titre -->
       <div class="header-main">
         <div class="header-main__identity logo-section">
-          <div class="logo">📋</div>
+          <div class="logo" aria-hidden="true">
+            <img src="./assets/company-logo.png" alt="" class="logo__image" />
+          </div>
           <div class="title-section">
-            <span class="header-eyebrow">QA Dashboard</span>
+            <span class="header-eyebrow">Pilotage QA</span>
             <h1 class="app-title" id="header-project-title">QareData QA Board</h1>
             <p class="app-description" id="header-project-subtitle">Vue d'ensemble des campagnes de recette, criticités et exports.</p>
           </div>
@@ -29,6 +31,10 @@
 
         <!-- Actions principales en haut -->
         <div class="header-actions">
+          <button class="btn btn-primary" id="run-random-test" title="Simuler une session QA aléatoire">
+            <span>🧪</span>
+            <span>Test auto</span>
+          </button>
           <button class="btn btn-success" id="generate-pdf" title="Exporter PDF">
             <span>📄</span>
             <span>PDF</span>
