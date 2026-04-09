@@ -17,7 +17,10 @@ import {
 } from "./core/state.js?v=20260407-pdf-phase1-1";
 import { generatePdfReport } from "./services/pdf.service.js?v=20260407-pdf-phase1-1";
 import { downloadMarkdownReport } from "./services/report.service.js?v=20260407-pdf-phase1-1";
-import { runRandomQaSimulation } from "./services/test-simulator.service.js?v=20260409-test-simulator-1";
+import {
+  askRandomQaSimulationSettings,
+  runRandomQaSimulation,
+} from "./services/test-simulator.service.js?v=20260409-test-simulator-2";
 import { renderApp } from "./ui/render.js?v=20260407-pdf-phase1-1";
 import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260407-pdf-phase1-1";
 import { syncSidebarOptions } from "./ui/components/filters.js?v=20260407-pdf-phase1-1";
@@ -290,22 +293,34 @@ async function handleReset() {
 }
 
 function handleRandomTestRun() {
-  const confirmed = window.confirm(
-    "La simulation QA va modifier aléatoirement les cartes sauvegardées localement. Continuer ?",
-  );
-  if (!confirmed) {
+  if (!store.getState().board) {
+    updateSaveStatus("Le board n'est pas encore prêt pour la simulation.");
     return;
   }
 
-  const simulationResult = runRandomQaSimulation(store.getState().board, {
+  const simulationSettings = askRandomQaSimulationSettings(store.getState().board, {
     tester: elements.testerInput?.value,
     environment: elements.environmentInput?.value,
   });
+  if (!simulationSettings) {
+    updateSaveStatus("Simulation QA annulée.");
+    return;
+  }
 
-  updateBoard(
-    () => simulationResult.board,
-    simulationResult.summary?.message || "Simulation QA exécutée.",
-  );
+  try {
+    const simulationResult = runRandomQaSimulation(
+      store.getState().board,
+      simulationSettings,
+    );
+
+    updateBoard(
+      () => simulationResult.board,
+      simulationResult.summary?.message || "Simulation QA exécutée.",
+    );
+  } catch (error) {
+    console.error(error);
+    updateSaveStatus("La simulation QA a échoué.");
+  }
 }
 
 function handleBoardClick(event) {
