@@ -1,10 +1,10 @@
-import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260407-pdf-phase1-1";
+import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260409-crud-cards-3";
 import {
   getCardChecklistMetrics,
   getCardStatusMeta,
   getSeverityMeta,
   getSourceStatusMeta,
-} from "../../core/state.js?v=20260407-pdf-phase1-1";
+} from "../../core/state.js?v=20260409-crud-cards-3";
 
 export function renderCardDetailed(surface, page, card, boardMeta = {}) {
   const status = getCardStatusMeta(card.status);
@@ -185,21 +185,22 @@ export function renderCardDetailed(surface, page, card, boardMeta = {}) {
           : ""
       }
 
-      ${
-        card.isManual
-          ? `
-            <div class="qa-card__footer-actions">
-              <button
-                class="button ghost danger"
-                type="button"
-                data-action="delete-card"
-              >
-                Supprimer cette carte
-              </button>
-            </div>
-          `
-          : ""
-      }
+      <div class="qa-card__footer-actions">
+        <button
+          class="button secondary"
+          type="button"
+          data-action="edit-card-definition"
+        >
+          Éditer la carte
+        </button>
+        <button
+          class="button ghost danger"
+          type="button"
+          data-action="delete-card"
+        >
+          Supprimer la carte
+        </button>
+      </div>
     </article>
   `;
 }

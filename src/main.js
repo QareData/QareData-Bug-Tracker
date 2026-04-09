@@ -1,33 +1,36 @@
-import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260407-pdf-phase1-1";
-import { createStore } from "./core/store.js?v=20260407-pdf-phase1-1";
+import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260409-crud-cards-3";
+import { createStore } from "./core/store.js?v=20260409-crud-cards-3";
 import {
   collapseAllCards,
   addScenarioStep,
   addScreenshot,
   clearScenarioStepResult,
   createInitialAppState,
-  createManualCard,
   deleteCard,
   markScenarioStepOk,
   removeScenarioStep,
   removeScreenshot,
   saveScenarioStepBug,
   setCardField,
+  upsertCardDefinition,
   updateBoardMeta,
-} from "./core/state.js?v=20260407-pdf-phase1-1";
-import { generatePdfReport } from "./services/pdf.service.js?v=20260407-pdf-phase1-1";
-import { downloadMarkdownReport } from "./services/report.service.js?v=20260407-pdf-phase1-1";
+} from "./core/state.js?v=20260409-crud-cards-3";
+import { generatePdfReport } from "./services/pdf.service.js?v=20260409-crud-cards-3";
+import { downloadMarkdownReport } from "./services/report.service.js?v=20260409-crud-cards-3";
 import {
   askRandomQaSimulationSettings,
   runRandomQaSimulation,
 } from "./services/test-simulator.service.js?v=20260409-test-simulator-2";
-import { renderApp } from "./ui/render.js?v=20260407-pdf-phase1-1";
-import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260407-pdf-phase1-1";
-import { syncSidebarOptions } from "./ui/components/filters.js?v=20260407-pdf-phase1-1";
-import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260407-pdf-phase1-1";
+import { renderApp } from "./ui/render.js?v=20260409-crud-cards-3";
+import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260409-crud-cards-3";
+import { syncSidebarOptions } from "./ui/components/filters.js?v=20260409-crud-cards-3";
+import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260409-crud-cards-3";
 
 const elements = getElements();
 let activeModalCardId = null;
+const cardEditorState = {
+  cardId: null,
+};
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "qa-sidebar-collapsed";
 const store = createStore({
   board: null,
@@ -62,6 +65,7 @@ async function init() {
   saveCards(board);
   bindEvents();
   render();
+  resetCardEditor();
   updateSaveStatus("Board QA chargé. Sauvegarde locale active.");
   maybeRunTestMode();
 }
@@ -118,7 +122,14 @@ function bindEvents() {
     input.addEventListener("change", handleMetaChange);
   });
 
-  elements.createCardButton.addEventListener("click", handleCreateCard);
+  elements.openCardEditorButton?.addEventListener("click", () => openCardEditor());
+  elements.createCardButton?.addEventListener("click", handleCreateCard);
+  elements.cancelCardEditorButton?.addEventListener("click", handleCancelCardEditor);
+  elements.deleteCardEditorButton?.addEventListener("click", handleDeleteEditorCard);
+  elements.newCardSurface?.addEventListener("change", handleCardEditorSurfaceChange);
+  elements.newCardChecklistCount?.addEventListener("change", handleChecklistCountChange);
+  elements.addChecklistStepButton?.addEventListener("click", handleAddChecklistStep);
+  elements.cardEditorChecklistRoot?.addEventListener("click", handleCardEditorChecklistClick);
   elements.exportButton?.addEventListener("click", handleExportJson);
   elements.importButton?.addEventListener("click", () => elements.importInput?.click());
   elements.importInput?.addEventListener("change", handleImportJson);
@@ -132,6 +143,12 @@ function bindEvents() {
   elements.modalOverlay?.addEventListener("click", (event) => {
     if (event.target === elements.modalOverlay) {
       closeCardModal();
+    }
+  });
+  elements.cardEditorClose?.addEventListener("click", closeCardEditorModal);
+  elements.cardEditorOverlay?.addEventListener("click", (event) => {
+    if (event.target === elements.cardEditorOverlay) {
+      closeCardEditorModal();
     }
   });
   document.addEventListener("keydown", handleDocumentKeydown);
@@ -157,6 +174,7 @@ function render() {
   syncSidebarOptions(state.board, elements, state.filters);
   syncStaticFields(state);
   renderApp(state, elements);
+  syncCardEditorUi();
 }
 
 function updateFilters(patch) {
@@ -189,32 +207,458 @@ function handleMetaChange() {
 }
 
 function handleCreateCard() {
+  const previousCardId = cardEditorState.cardId;
+  const nextCardId = previousCardId || generateId("manual-card");
+  const isEditing = Boolean(previousCardId);
+
   try {
+    const payload = readCardEditorPayload(nextCardId);
+    cardEditorState.cardId = nextCardId;
     updateBoard(
-      (board) =>
-        createManualCard(board, {
-          surfaceId: elements.newCardSurface.value,
-          surfaceName:
-            elements.newCardSurface.selectedOptions[0]?.textContent || "Cartes perso",
-          pageName: elements.newCardPage.value,
-          title: elements.newCardTitle.value,
-          severity: elements.newCardSeverity.value,
-          notes: elements.newCardNotes.value,
-          scenarioSteps: elements.newCardChecklist.value,
-        }),
-      "Carte QA créée.",
+      (board) => upsertCardDefinition(board, payload),
+      isEditing ? "Carte mise à jour localement." : "Carte QA créée localement.",
     );
+
+    const savedContext = findCardContext(store.getState().board, nextCardId);
+    if (savedContext) {
+      populateCardEditor(savedContext);
+    } else {
+      cardEditorState.cardId = previousCardId;
+    }
   } catch (error) {
-    updateSaveStatus(error.message);
-    elements.newCardTitle.focus();
+    cardEditorState.cardId = previousCardId;
+    updateSaveStatus(error instanceof Error ? error.message : "Impossible d'enregistrer la carte.");
+    elements.newCardTitle?.focus();
+  }
+}
+
+function handleCancelCardEditor() {
+  if (cardEditorState.cardId) {
+    resetCardEditor();
+    openCardEditorModal();
     return;
   }
 
-  elements.newCardPage.value = "";
-  elements.newCardTitle.value = "";
-  elements.newCardNotes.value = "";
-  elements.newCardChecklist.value = "";
-  elements.newCardSeverity.value = "major";
+  closeCardEditorModal();
+}
+
+function handleDeleteEditorCard() {
+  if (!cardEditorState.cardId) {
+    closeCardEditorModal();
+    return;
+  }
+
+  const confirmed = window.confirm(
+    "Supprimer cette carte du board local ? Pense à exporter le JSON si tu veux conserver une version avant suppression.",
+  );
+  if (!confirmed) {
+    return;
+  }
+
+  const deletedCardId = cardEditorState.cardId;
+  updateBoard((board) => deleteCard(board, deletedCardId), "Carte supprimée du board local.");
+  if (cardEditorState.cardId === deletedCardId) {
+    resetCardEditor();
+  }
+  closeCardEditorModal();
+}
+
+function handleCardEditorSurfaceChange() {
+  syncCardEditorPageOptions("");
+}
+
+function handleChecklistCountChange(event) {
+  resizeCardEditorChecklist(clampChecklistCount(event.target.value));
+}
+
+function handleAddChecklistStep() {
+  const nextCount = getCardEditorRawChecklistValues().length + 1;
+  resizeCardEditorChecklist(nextCount);
+  const inputs = elements.cardEditorChecklistRoot?.querySelectorAll(".card-editor-step__input");
+  inputs?.[inputs.length - 1]?.focus();
+}
+
+function handleCardEditorChecklistClick(event) {
+  const removeButton = event.target.closest('[data-action="remove-editor-step"]');
+  if (!removeButton) {
+    return;
+  }
+
+  const stepRow = removeButton.closest("[data-step-index]");
+  if (!stepRow) {
+    return;
+  }
+
+  const index = Number.parseInt(stepRow.dataset.stepIndex || "-1", 10);
+  if (index < 0) {
+    return;
+  }
+
+  const labels = getCardEditorRawChecklistValues().filter((_, itemIndex) => itemIndex !== index);
+  renderCardEditorChecklist(labels);
+}
+
+function openCardEditor(cardId = null) {
+  if (cardId) {
+    const context = findCardContext(store.getState().board, cardId);
+    if (!context) {
+      updateSaveStatus("Carte introuvable.");
+      return;
+    }
+    closeCardModal();
+    populateCardEditor(context);
+  } else {
+    resetCardEditor();
+  }
+
+  openCardEditorModal();
+}
+
+function populateCardEditor(context) {
+  const { surface, page, card } = context;
+  cardEditorState.cardId = card.id;
+
+  if (elements.newCardSurface) {
+    elements.newCardSurface.value = surface.id;
+  }
+  syncCardEditorPageOptions(page.name);
+
+  if (elements.newCardPage) {
+    elements.newCardPage.value = page.name;
+  }
+  if (elements.newCardPageCustom) {
+    elements.newCardPageCustom.value = "";
+  }
+  if (elements.newCardTitle) {
+    elements.newCardTitle.value = card.title || "";
+  }
+  if (elements.newCardScenarioTitle) {
+    elements.newCardScenarioTitle.value = card.scenarioTitle || "";
+  }
+  if (elements.newCardSeverity) {
+    elements.newCardSeverity.value = card.severity || "major";
+  }
+  if (elements.newCardSourceStatus) {
+    elements.newCardSourceStatus.value = card.sourceStatus || "source-neutral";
+  }
+  if (elements.newCardMethod) {
+    elements.newCardMethod.value = card.legacyContext?.description || "";
+  }
+  if (elements.newCardExpectedResult) {
+    elements.newCardExpectedResult.value = card.legacyContext?.expectedResult || "";
+  }
+  if (elements.newCardSourceIssues) {
+    elements.newCardSourceIssues.value = (card.sourceIssues || []).join("\n");
+  }
+  if (elements.newCardValidatedPoints) {
+    elements.newCardValidatedPoints.value = (card.validatedPoints || []).join("\n");
+  }
+  if (elements.newCardAdvice) {
+    elements.newCardAdvice.value = (card.advice || []).join("\n");
+  }
+  if (elements.newCardReferences) {
+    elements.newCardReferences.value = (card.references || []).join("\n");
+  }
+  if (elements.newCardNotes) {
+    elements.newCardNotes.value = card.notes || "";
+  }
+
+  renderCardEditorChecklist((card.checklist || []).map((item) => item.label || ""));
+  syncCardEditorUi();
+}
+
+function resetCardEditor() {
+  const state = store.getState();
+  if (!state.board) {
+    return;
+  }
+  const preferredSurfaceId = resolvePreferredEditorSurfaceId(state.board, state.filters);
+  const preferredPageName = resolvePreferredEditorPageName(
+    state.board,
+    state.filters,
+    preferredSurfaceId,
+  );
+
+  cardEditorState.cardId = null;
+
+  if (elements.newCardSurface) {
+    elements.newCardSurface.value = preferredSurfaceId;
+  }
+
+  syncCardEditorPageOptions(preferredPageName);
+
+  if (elements.newCardPage) {
+    elements.newCardPage.value = preferredPageName;
+  }
+  if (elements.newCardPageCustom) {
+    elements.newCardPageCustom.value = "";
+  }
+  if (elements.newCardTitle) {
+    elements.newCardTitle.value = "";
+  }
+  if (elements.newCardScenarioTitle) {
+    elements.newCardScenarioTitle.value = "";
+  }
+  if (elements.newCardSeverity) {
+    elements.newCardSeverity.value = "major";
+  }
+  if (elements.newCardSourceStatus) {
+    elements.newCardSourceStatus.value = "source-neutral";
+  }
+  if (elements.newCardMethod) {
+    elements.newCardMethod.value = "";
+  }
+  if (elements.newCardExpectedResult) {
+    elements.newCardExpectedResult.value = "";
+  }
+  if (elements.newCardSourceIssues) {
+    elements.newCardSourceIssues.value = "";
+  }
+  if (elements.newCardValidatedPoints) {
+    elements.newCardValidatedPoints.value = "";
+  }
+  if (elements.newCardAdvice) {
+    elements.newCardAdvice.value = "";
+  }
+  if (elements.newCardReferences) {
+    elements.newCardReferences.value = "";
+  }
+  if (elements.newCardNotes) {
+    elements.newCardNotes.value = "";
+  }
+
+  renderCardEditorChecklist(["", "", ""]);
+  syncCardEditorUi();
+}
+
+function readCardEditorPayload(cardId) {
+  const surfaceId = String(elements.newCardSurface?.value || "").trim();
+  const surfaceName =
+    elements.newCardSurface?.selectedOptions?.[0]?.textContent?.trim() || "Cartes perso";
+  const selectedPageName = String(elements.newCardPage?.value || "").trim();
+  const customPageName = String(elements.newCardPageCustom?.value || "").trim();
+  const title = String(elements.newCardTitle?.value || "").trim();
+  const scenarioTitle = String(elements.newCardScenarioTitle?.value || "").trim() || title;
+  const pageName = customPageName || selectedPageName;
+
+  if (!surfaceId) {
+    throw new Error("Sélectionne une surface pour la carte.");
+  }
+
+  if (!pageName) {
+    throw new Error("Choisis une page existante ou saisis un nom de page.");
+  }
+
+  if (!title) {
+    throw new Error("Le titre de la carte est obligatoire.");
+  }
+
+  return {
+    id: cardId,
+    surfaceId,
+    surfaceName,
+    pageName,
+    title,
+    scenarioTitle,
+    severity: elements.newCardSeverity?.value || "major",
+    sourceStatus: elements.newCardSourceStatus?.value || "source-neutral",
+    testMethod: elements.newCardMethod?.value || "",
+    expectedResult: elements.newCardExpectedResult?.value || "",
+    sourceIssues: elements.newCardSourceIssues?.value || "",
+    validatedPoints: elements.newCardValidatedPoints?.value || "",
+    advice: elements.newCardAdvice?.value || "",
+    references: elements.newCardReferences?.value || "",
+    notes: elements.newCardNotes?.value || "",
+    checklistLabels: getCardEditorChecklistValues(),
+  };
+}
+
+function syncCardEditorUi() {
+  if (!store.getState().board) {
+    return;
+  }
+
+  let editingContext = null;
+  if (cardEditorState.cardId) {
+    editingContext = findCardContext(store.getState().board, cardEditorState.cardId);
+    if (!editingContext) {
+      cardEditorState.cardId = null;
+    }
+  }
+
+  const isEditing = Boolean(editingContext);
+  if (elements.cardEditorTitle) {
+    elements.cardEditorTitle.textContent = isEditing ? "Modifier une carte" : "Ajouter une carte";
+  }
+  if (elements.cardEditorBadge) {
+    elements.cardEditorBadge.textContent = isEditing ? "Édition" : "Création";
+  }
+  if (elements.cardEditorSubtitle) {
+    elements.cardEditorSubtitle.textContent = isEditing
+      ? `Modification locale de ${editingContext.surface.name} · ${editingContext.page.name}. Exporte le JSON pour publier ces changements sur GitHub.`
+      : "Les modifications sont stockées localement. Exporte le JSON pour les publier sur GitHub.";
+  }
+  if (elements.createCardButton) {
+    elements.createCardButton.textContent = isEditing
+      ? "Enregistrer les modifications"
+      : "Enregistrer la carte";
+  }
+  if (elements.cancelCardEditorButton) {
+    elements.cancelCardEditorButton.textContent = isEditing ? "Nouvelle carte" : "Fermer";
+  }
+  if (elements.deleteCardEditorButton) {
+    elements.deleteCardEditorButton.hidden = !isEditing;
+  }
+  elements.cardEditorPanel?.classList.toggle("is-editing", isEditing);
+}
+
+function syncCardEditorPageOptions(selectedPageName = elements.newCardPage?.value || "") {
+  const state = store.getState();
+  if (!state.board) {
+    return;
+  }
+  syncSidebarOptions(state.board, elements, state.filters);
+
+  if (!elements.newCardPage) {
+    return;
+  }
+
+  const pageOptions = Array.from(elements.newCardPage.options).map((option) => option.value);
+  elements.newCardPage.value = pageOptions.includes(selectedPageName) ? selectedPageName : "";
+}
+
+function resolvePreferredEditorSurfaceId(board, filters) {
+  if (filters.surface !== "all" && board.surfaces.some((surface) => surface.id === filters.surface)) {
+    return filters.surface;
+  }
+
+  const currentEditorSurface = String(elements.newCardSurface?.value || "").trim();
+  if (currentEditorSurface && board.surfaces.some((surface) => surface.id === currentEditorSurface)) {
+    return currentEditorSurface;
+  }
+
+  return board.surfaces[0]?.id || "manager";
+}
+
+function resolvePreferredEditorPageName(board, filters, surfaceId) {
+  if (filters.page !== "all" && filters.surface === surfaceId) {
+    const pageName = findPageNameById(board, surfaceId, filters.page);
+    if (pageName) {
+      return pageName;
+    }
+  }
+
+  const currentEditorPage = String(elements.newCardPage?.value || "").trim();
+  if (currentEditorPage && hasPageName(board, surfaceId, currentEditorPage)) {
+    return currentEditorPage;
+  }
+
+  return "";
+}
+
+function findPageNameById(board, surfaceId, pageId) {
+  const surface = board.surfaces.find((entry) => entry.id === surfaceId);
+  const page = surface?.pages.find((entry) => entry.id === pageId);
+  return page?.name || "";
+}
+
+function hasPageName(board, surfaceId, pageName) {
+  const surface = board.surfaces.find((entry) => entry.id === surfaceId);
+  return surface?.pages.some((page) => page.name === pageName) || false;
+}
+
+function renderCardEditorChecklist(labels = []) {
+  if (!elements.cardEditorChecklistRoot) {
+    return;
+  }
+
+  const root = elements.cardEditorChecklistRoot;
+  root.innerHTML = "";
+
+  if (!labels.length) {
+    const emptyState = document.createElement("div");
+    emptyState.className = "card-editor-step__empty";
+    emptyState.textContent = "Aucune étape définie. Ajoute-en pour cadrer le scénario.";
+    root.append(emptyState);
+  }
+
+  labels.forEach((label, index) => {
+    const row = document.createElement("div");
+    row.className = "card-editor-step";
+    row.dataset.stepIndex = String(index);
+
+    const indexBadge = document.createElement("span");
+    indexBadge.className = "card-editor-step__index";
+    indexBadge.textContent = `Étape ${index + 1}`;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "card-text-input card-editor-step__input";
+    input.placeholder = `Décris l'étape ${index + 1}`;
+    input.value = label;
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "button ghost small card-editor-step__remove";
+    removeButton.dataset.action = "remove-editor-step";
+    removeButton.textContent = "Retirer";
+
+    row.append(indexBadge, input, removeButton);
+    root.append(row);
+  });
+
+  if (elements.newCardChecklistCount) {
+    elements.newCardChecklistCount.value = String(labels.length);
+  }
+}
+
+function resizeCardEditorChecklist(nextCount) {
+  const safeCount = clampChecklistCount(nextCount);
+  const currentValues = getCardEditorRawChecklistValues();
+  const labels = Array.from({ length: safeCount }, (_, index) => currentValues[index] || "");
+  renderCardEditorChecklist(labels);
+}
+
+function getCardEditorValuesFromDom() {
+  return Array.from(
+    elements.cardEditorChecklistRoot?.querySelectorAll(".card-editor-step__input") || [],
+  );
+}
+
+function getCardEditorRawChecklistValues() {
+  return getCardEditorValuesFromDom().map((input) => input.value || "");
+}
+
+function getCardEditorChecklistValues() {
+  return getCardEditorRawChecklistValues()
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
+function clampChecklistCount(value) {
+  const parsed = Number.parseInt(String(value || "0"), 10);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.min(20, parsed));
+}
+
+function scrollCardEditorIntoView() {
+  window.requestAnimationFrame(() => {
+    elements.newCardTitle?.focus({ preventScroll: true });
+  });
+}
+
+function openCardEditorModal() {
+  elements.cardEditorOverlay?.classList.add("active");
+  syncBodyScrollLock();
+  scrollCardEditorIntoView();
+}
+
+function closeCardEditorModal() {
+  elements.cardEditorOverlay?.classList.remove("active");
+  syncBodyScrollLock();
 }
 
 function handleExportJson() {
@@ -243,7 +687,9 @@ async function handleImportJson(event) {
     }));
     saveCards(board);
     closeCardModal();
+    closeCardEditorModal();
     render();
+    resetCardEditor();
     updateSaveStatus("Import JSON terminé.");
   } catch (error) {
     console.error(error);
@@ -288,7 +734,9 @@ async function handleReset() {
   store.setState(createInitialAppState(board));
   saveCards(board);
   closeCardModal();
+  closeCardEditorModal();
   render();
+  resetCardEditor();
   updateSaveStatus("Sauvegarde locale réinitialisée.");
 }
 
@@ -346,6 +794,11 @@ function handleBoardClick(event) {
     switch (actionTarget.dataset.action) {
       case "open-card-modal": {
         openCardModal(cardId);
+        break;
+      }
+
+      case "edit-card-definition": {
+        openCardEditor(cardId);
         break;
       }
 
@@ -479,9 +932,14 @@ function handleBoardClick(event) {
       }
 
       case "delete-card": {
-        const confirmed = window.confirm("Supprimer définitivement cette carte manuelle ?");
+        const confirmed = window.confirm(
+          "Supprimer cette carte du board local ? Exporte le JSON si tu veux conserver une sauvegarde publiable.",
+        );
         if (!confirmed) return;
         updateBoard((board) => deleteCard(board, cardId), "Carte supprimée.");
+        if (cardEditorState.cardId === cardId) {
+          resetCardEditor();
+        }
         closeCardModal();
         break;
       }
@@ -584,7 +1042,16 @@ function handleBoardKeydown(event) {
 }
 
 function handleDocumentKeydown(event) {
-  if (event.key === "Escape" && elements.modalOverlay?.classList.contains("active")) {
+  if (event.key !== "Escape") {
+    return;
+  }
+
+  if (elements.cardEditorOverlay?.classList.contains("active")) {
+    closeCardEditorModal();
+    return;
+  }
+
+  if (elements.modalOverlay?.classList.contains("active")) {
     closeCardModal();
   }
 }
@@ -856,7 +1323,7 @@ function openCardModal(cardId) {
   activeModalCardId = cardId;
   renderModalCard(cardId);
   elements.modalOverlay.classList.add("active");
-  document.body.style.overflow = "hidden";
+  syncBodyScrollLock();
 }
 
 function renderModalCard(cardId) {
@@ -883,7 +1350,15 @@ function closeCardModal() {
   if (elements.modalContent) {
     elements.modalContent.innerHTML = "";
   }
-  document.body.style.overflow = "";
+  syncBodyScrollLock();
+}
+
+function syncBodyScrollLock() {
+  const hasOpenOverlay = Boolean(
+    elements.modalOverlay?.classList.contains("active")
+    || elements.cardEditorOverlay?.classList.contains("active"),
+  );
+  document.body.style.overflow = hasOpenOverlay ? "hidden" : "";
 }
 
 function getCardIdFromNode(node) {
@@ -969,13 +1444,33 @@ function getElements() {
     onlyNotValidatedInput: document.querySelector("#only-not-validated"),
     hideDoneInput: document.querySelector("#hide-done"),
 
+    openCardEditorButton: document.querySelector("#open-card-editor"),
+    cardEditorPanel: document.querySelector("#card-editor-panel"),
+    cardEditorOverlay: document.querySelector("#card-editor-overlay"),
+    cardEditorClose: document.querySelector("#card-editor-close"),
+    cardEditorTitle: document.querySelector("#card-editor-title"),
+    cardEditorSubtitle: document.querySelector("#card-editor-subtitle"),
+    cardEditorBadge: document.querySelector("#card-editor-badge"),
     newCardSurface: document.querySelector("#new-card-surface"),
     newCardPage: document.querySelector("#new-card-page"),
+    newCardPageCustom: document.querySelector("#new-card-page-custom"),
     newCardTitle: document.querySelector("#new-card-title"),
+    newCardScenarioTitle: document.querySelector("#new-card-scenario-title"),
     newCardSeverity: document.querySelector("#new-card-severity"),
-    newCardChecklist: document.querySelector("#new-card-checklist"),
+    newCardSourceStatus: document.querySelector("#new-card-source-status"),
+    newCardMethod: document.querySelector("#new-card-method"),
+    newCardExpectedResult: document.querySelector("#new-card-expected-result"),
+    newCardSourceIssues: document.querySelector("#new-card-source-issues"),
+    newCardValidatedPoints: document.querySelector("#new-card-validated-points"),
+    newCardAdvice: document.querySelector("#new-card-advice"),
+    newCardReferences: document.querySelector("#new-card-references"),
     newCardNotes: document.querySelector("#new-card-notes"),
+    newCardChecklistCount: document.querySelector("#new-card-checklist-count"),
+    addChecklistStepButton: document.querySelector("#add-checklist-step"),
+    cardEditorChecklistRoot: document.querySelector("#card-editor-checklist-root"),
     createCardButton: document.querySelector("#create-card"),
+    cancelCardEditorButton: document.querySelector("#cancel-card-editor"),
+    deleteCardEditorButton: document.querySelector("#delete-card-editor"),
 
     generateMarkdownButton: document.querySelector("#generate-markdown"),
     generatePdfButton: document.querySelector("#generate-pdf"),

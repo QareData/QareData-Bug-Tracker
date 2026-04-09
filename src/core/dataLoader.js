@@ -7,7 +7,7 @@ import {
   STORAGE_VERSION,
 } from "../utils/constants.js?v=20260407-ui-fixes-2";
 import { cleanText, generateId } from "../utils/format.js?v=20260407-ui-fixes-2";
-import { cloneBoard, normalizeBoardData } from "./state.js?v=20260407-ui-fixes-2";
+import { cloneBoard, normalizeBoardData } from "./state.js?v=20260409-crud-cards-3";
 
 export async function loadCards() {
   const currentState = readStoredBoard(STORAGE_KEY);
@@ -161,6 +161,8 @@ function mergeBoards(baseBoard, savedBoard) {
     ...base.meta,
     ...saved.meta,
   };
+  base.deletedCardIds = Array.from(new Set([...(base.deletedCardIds || []), ...(saved.deletedCardIds || [])]));
+  applyDeletedCards(base, base.deletedCardIds);
 
   if (savedBoard?.legacyItems || savedBoard?.legacyManualItems) {
     applyLegacyState(base, savedBoard.legacyItems || {}, savedBoard.legacyManualItems || []);
@@ -197,6 +199,8 @@ function mergeBoards(baseBoard, savedBoard) {
 }
 
 function mergeCardState(baseCard, savedCard) {
+  baseCard.title = savedCard.title || baseCard.title;
+  baseCard.scenarioTitle = savedCard.scenarioTitle || baseCard.scenarioTitle;
   baseCard.status = savedCard.status;
   baseCard.sourceStatus = savedCard.sourceStatus;
   baseCard.severity = savedCard.severity;
@@ -205,35 +209,32 @@ function mergeCardState(baseCard, savedCard) {
   baseCard.notes = savedCard.notes;
   baseCard.screenshots = savedCard.screenshots;
   baseCard.collapsed = savedCard.collapsed;
-  baseCard.scenarioTitle = savedCard.scenarioTitle || baseCard.scenarioTitle;
-  baseCard.references = Array.from(
-    new Set([...(baseCard.references || []), ...(savedCard.references || [])]),
-  );
+  baseCard.references = savedCard.references || [];
+  baseCard.sourceIssues = savedCard.sourceIssues || [];
+  baseCard.validatedPoints = savedCard.validatedPoints || [];
+  baseCard.advice = savedCard.advice || [];
   baseCard.legacyContext = savedCard.legacyContext || {};
+  baseCard.checklist = savedCard.checklist || [];
+  baseCard.isManual = Boolean(savedCard.isManual);
+}
 
-  const savedChecklistMap = new Map(savedCard.checklist.map((item) => [item.id, item]));
-  baseCard.checklist = baseCard.checklist.map((item) => {
-    const savedItem = savedChecklistMap.get(item.id);
-    if (!savedItem) {
-      return item;
-    }
-    return {
-      ...item,
-      status: savedItem.status || (savedItem.checked ? "ok" : "pending"),
-      bug: savedItem.bug || item.bug,
-      timestamp: savedItem.timestamp || savedItem.testedAt || item.timestamp || "",
-      tester: savedItem.tester || savedItem.testedBy || item.tester || "",
-      origin: savedItem.origin === "manual" ? "manual" : item.origin,
-    };
-  });
+function applyDeletedCards(board, deletedCardIds = []) {
+  if (!deletedCardIds.length) {
+    return;
+  }
 
-  savedCard.checklist
-    .filter((item) => item.origin === "manual")
-    .forEach((savedItem) => {
-      if (!baseCard.checklist.some((item) => item.id === savedItem.id)) {
-        baseCard.checklist.push(savedItem);
-      }
+  const deleted = new Set(deletedCardIds);
+  board.surfaces.forEach((surface) => {
+    surface.pages.forEach((page) => {
+      page.cards = page.cards.filter((card) => !deleted.has(card.id));
     });
+    surface.pages = surface.pages.filter(
+      (page) => page.cards.length > 0 || surface.id !== CUSTOM_SURFACE_ID,
+    );
+  });
+  board.surfaces = board.surfaces.filter(
+    (surface) => surface.id !== CUSTOM_SURFACE_ID || surface.pages.length > 0,
+  );
 }
 
 function applyLegacyState(board, legacyItems, manualItems) {

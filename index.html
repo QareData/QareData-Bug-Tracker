@@ -7,10 +7,10 @@
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
   <title>QareData QA Board - Refonte Professionnelle</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/favicon-checklist.svg?v=20260409-test-route-1" />
-  <link rel="shortcut icon" href="./assets/favicon-checklist.svg?v=20260409-test-route-1" />
-  <link rel="stylesheet" href="./styles.css?v=20260409-test-route-1" />
-  <link rel="stylesheet" href="./minimal-cards.css?v=20260409-test-route-1" />
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon-checklist.svg?v=20260409-crud-cards-3" />
+  <link rel="shortcut icon" href="./assets/favicon-checklist.svg?v=20260409-crud-cards-3" />
+  <link rel="stylesheet" href="./styles.css?v=20260409-crud-cards-3" />
+  <link rel="stylesheet" href="./minimal-cards.css?v=20260409-crud-cards-3" />
 </head>
 <body>
   <!-- ===== HEADER GLOBAL ===== -->
@@ -31,6 +31,18 @@
 
         <!-- Actions principales en haut -->
         <div class="header-actions">
+          <button class="btn btn-primary" id="open-card-editor" type="button" title="Créer une nouvelle carte">
+            <span>＋</span>
+            <span>Nouvelle carte</span>
+          </button>
+          <button class="btn btn-ghost" id="export-json" type="button" title="Exporter le board en JSON">
+            <span>⬇</span>
+            <span>JSON</span>
+          </button>
+          <button class="btn btn-ghost" id="import-json" type="button" title="Importer un board JSON">
+            <span>⬆</span>
+            <span>Importer</span>
+          </button>
           <button class="btn btn-success" id="generate-pdf" title="Exporter PDF">
             <span>📄</span>
             <span>PDF</span>
@@ -84,55 +96,6 @@
       <!-- Généré dynamiquement -->
     </aside>
 
-    <!-- Barre de création de carte manuelle -->
-    <aside class="create-card-panel">
-      <h3>➕ Créer une carte manuelle</h3>
-      <div class="create-card-form">
-        <div class="form-row">
-          <select id="new-card-surface" class="form-control" placeholder="Surface">
-            <option value="">Sélectionner surface</option>
-          </select>
-          <select id="new-card-page" class="form-control" placeholder="Page">
-            <option value="">Sélectionner page</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <input 
-            type="text" 
-            id="new-card-title" 
-            placeholder="Titre de la carte" 
-            class="form-control"
-          />
-        </div>
-        <div class="form-row">
-          <select id="new-card-severity" class="form-control">
-            <option value="minor">🟡 Mineur</option>
-            <option value="major">🟠 Majeur</option>
-            <option value="blocker">🔴 Bloquant</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <textarea 
-            id="new-card-notes" 
-            placeholder="Notes additionnelles" 
-            class="form-control"
-            rows="2"
-          ></textarea>
-        </div>
-        <div class="form-row">
-          <textarea 
-            id="new-card-checklist" 
-            placeholder="Étapes du scénario utilisateur (une ligne par étape)" 
-            class="form-control"
-            rows="2"
-          ></textarea>
-        </div>
-        <button class="btn btn-success" id="create-card">
-          ✅ Créer la carte
-        </button>
-      </div>
-    </aside>
-
     <!-- Zone centrale: Cartes -->
     <article class="content-area">
       <!-- Vue liste des cartes (board-root) -->
@@ -159,7 +122,211 @@
       </div>
     </div>
   </div>
+
+  <div class="modal-overlay" id="card-editor-overlay">
+    <div class="modal-container modal-container--editor">
+      <button class="modal-close" id="card-editor-close">&times;</button>
+
+      <div class="modal-content modal-content--editor">
+        <section class="create-card-panel create-card-panel--modal" id="card-editor-panel">
+          <div class="create-card-panel__header">
+            <div>
+              <p class="create-card-panel__eyebrow">CRUD cartes</p>
+              <h3 id="card-editor-title">Ajouter une carte</h3>
+              <p class="create-card-panel__subtitle" id="card-editor-subtitle">Les modifications sont stockées localement. Exporte le JSON pour les publier sur GitHub.</p>
+            </div>
+            <span class="create-card-panel__badge" id="card-editor-badge">Création</span>
+          </div>
+
+          <div class="create-card-form">
+            <div class="form-row form-row--double">
+              <label class="field">
+                <span>Surface</span>
+                <select id="new-card-surface" class="card-select">
+                  <option value="">Sélectionner surface</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Page existante</span>
+                <select id="new-card-page" class="card-select">
+                  <option value="">Sélectionner page</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="field">
+                <span>Nouvelle page ou renommage</span>
+                <input
+                  type="text"
+                  id="new-card-page-custom"
+                  placeholder="Nom de page personnalisé si besoin"
+                  class="card-text-input"
+                />
+              </label>
+            </div>
+
+            <div class="form-row form-row--double">
+              <label class="field">
+                <span>Titre de la carte</span>
+                <input
+                  type="text"
+                  id="new-card-title"
+                  placeholder="Ex. Modifier une organisation"
+                  class="card-text-input"
+                />
+              </label>
+              <label class="field">
+                <span>Scénario utilisateur</span>
+                <input
+                  type="text"
+                  id="new-card-scenario-title"
+                  placeholder="Ex. Un admin modifie une organisation"
+                  class="card-text-input"
+                />
+              </label>
+            </div>
+
+            <div class="form-row form-row--double">
+              <label class="field">
+                <span>Criticité</span>
+                <select id="new-card-severity" class="card-select">
+                  <option value="minor">🟡 Mineur</option>
+                  <option value="major">🟠 Majeur</option>
+                  <option value="blocker">🔴 Bloquant</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Statut source</span>
+                <select id="new-card-source-status" class="card-select">
+                  <option value="source-neutral">Observation</option>
+                  <option value="source-done">Stable</option>
+                  <option value="source-todo">À corriger</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="field textarea-field">
+                <span>Méthode de test / contexte</span>
+                <textarea
+                  id="new-card-method"
+                  placeholder="Comment le flux doit être rejoué, dans quel contexte et avec quelles vérifications."
+                  class="card-textarea"
+                ></textarea>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="field textarea-field">
+                <span>Résultat attendu</span>
+                <textarea
+                  id="new-card-expected-result"
+                  placeholder="Décris précisément le résultat fonctionnel attendu."
+                  class="card-textarea"
+                ></textarea>
+              </label>
+            </div>
+
+            <div class="form-row form-row--double">
+              <label class="field textarea-field">
+                <span>Points d'attention initiaux</span>
+                <textarea
+                  id="new-card-source-issues"
+                  placeholder="Une ligne par point d'attention"
+                  class="card-textarea"
+                ></textarea>
+              </label>
+              <label class="field textarea-field">
+                <span>Points déjà validés</span>
+                <textarea
+                  id="new-card-validated-points"
+                  placeholder="Une ligne par point déjà validé"
+                  class="card-textarea"
+                ></textarea>
+              </label>
+            </div>
+
+            <div class="form-row form-row--double">
+              <label class="field textarea-field">
+                <span>Recommandations / conseils</span>
+                <textarea
+                  id="new-card-advice"
+                  placeholder="Une ligne par recommandation"
+                  class="card-textarea"
+                ></textarea>
+              </label>
+              <label class="field textarea-field">
+                <span>Références utiles</span>
+                <textarea
+                  id="new-card-references"
+                  placeholder="Une ligne par lien, asset ou fichier"
+                  class="card-textarea"
+                ></textarea>
+              </label>
+            </div>
+
+            <div class="form-row">
+              <label class="field textarea-field">
+                <span>Notes initiales</span>
+                <textarea
+                  id="new-card-notes"
+                  placeholder="Notes de contexte additionnelles"
+                  class="card-textarea"
+                ></textarea>
+              </label>
+            </div>
+
+            <section class="qa-panel create-card-panel__checklist">
+              <div class="qa-panel__head">
+                <div>
+                  <h5>Checklist initiale</h5>
+                  <span>Définis le nombre d'étapes et leur contenu.</span>
+                </div>
+
+                <div class="card-editor-step-controls">
+                  <label class="field field--compact">
+                    <span>Nombre</span>
+                    <input
+                      type="number"
+                      id="new-card-checklist-count"
+                      min="0"
+                      max="20"
+                      value="3"
+                      class="card-text-input card-editor-count-input"
+                    />
+                  </label>
+                  <button class="button tertiary small" id="add-checklist-step" type="button">
+                    Ajouter une étape
+                  </button>
+                </div>
+              </div>
+
+              <div class="card-editor-steps" id="card-editor-checklist-root"></div>
+            </section>
+
+            <div class="create-card-panel__actions">
+              <button class="btn btn-primary" id="create-card" type="button">
+                Enregistrer la carte
+              </button>
+              <button class="btn btn-ghost" id="cancel-card-editor" type="button">
+                Réinitialiser
+              </button>
+              <button class="btn btn-ghost" id="delete-card-editor" type="button">
+                Supprimer
+              </button>
+            </div>
+
+            <p class="create-card-panel__footnote">
+              GitHub Pages ne met pas à jour automatiquement <code>data/cards.json</code>. Utilise l’export JSON pour republier tes changements.
+            </p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="file-import" accept=".json,application/json" hidden />
   <!-- Scripts -->
-  <script type="module" src="./src/main.js?v=20260409-test-route-1"></script>
+  <script type="module" src="./src/main.js?v=20260409-crud-cards-3"></script>
 </body>
 </html>

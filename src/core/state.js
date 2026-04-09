@@ -21,6 +21,7 @@ export function normalizeBoardData(rawBoard = {}) {
   const input = rawBoard && typeof rawBoard === "object" ? rawBoard : {};
   const surfaces = safeArray(input.surfaces).map(normalizeSurface);
   const ensuredSurfaces = ensureCustomSurface(surfaces);
+  const deletedCardIds = uniqueTexts(safeArray(input.deletedCardIds));
 
   // Supportter SOIT input.meta SOIT input.metadata (nouveau format)
   const metaSource = input.meta || input.metadata || {};
@@ -35,6 +36,7 @@ export function normalizeBoardData(rawBoard = {}) {
       lastImportedAt: metaSource.lastImportedAt || "",
     },
     surfaces: ensuredSurfaces.sort(sortSurfaces),
+    deletedCardIds,
   };
 }
 
@@ -289,10 +291,6 @@ export function updateBoardMeta(board, patch) {
 }
 
 export function createManualCard(board, payload) {
-  const nextBoard = cloneBoard(board);
-  const surfaceId = cleanText(payload.surfaceId) || CUSTOM_SURFACE_ID;
-  const pageName = cleanText(payload.pageName) || DEFAULT_PAGE_NAME;
-  const title = cleanText(payload.title);
   const scenarioSteps = String(
     payload.scenarioSteps || payload.firstChecklistItem || "",
   )
@@ -300,53 +298,30 @@ export function createManualCard(board, payload) {
     .map((item) => cleanText(item))
     .filter(Boolean);
 
-  if (!title) {
-    throw new Error("Le titre de la carte est obligatoire.");
-  }
-
-  const surface = ensureSurface(nextBoard, surfaceId, payload.surfaceName);
-  const page = ensurePage(surface, pageName);
-  page.cards.push(
-    normalizeCard({
-      id: generateId("manual-card"),
-      title,
-      scenarioTitle: title,
-      status: "todo",
-      sourceStatus: "source-neutral",
-      severity: payload.severity || "major",
-      tester: "",
-      environment: "",
-      notes: String(payload.notes || "").trim(),
-      screenshots: [],
-      collapsed: true,
-      checklist: (scenarioSteps.length
-        ? scenarioSteps
-        : [`Réaliser le scénario principal "${title}" avec des données cohérentes.`]
-      ).map((label, index) => ({
-        id: generateId("chk"),
-        label: toUserScenarioStepLabel(label, title, index),
-        status: "pending",
-        bug: createEmptyStepBug(),
-        timestamp: "",
-        tester: "",
-        origin: "manual",
-      })),
-      sourceIssues: [],
-      validatedPoints: [],
-      advice: [],
-      references: extractMentions([payload.notes || ""]),
-      isManual: true,
-    }),
-  );
-
-  page.cards.sort(sortCards);
-  surface.pages.sort(sortPages);
-  nextBoard.surfaces.sort(sortSurfaces);
-  return normalizeBoardData(nextBoard);
+  return upsertCardDefinition(board, {
+    surfaceId: payload.surfaceId,
+    surfaceName: payload.surfaceName,
+    pageName: payload.pageName,
+    title: payload.title,
+    scenarioTitle: payload.title,
+    severity: payload.severity || "major",
+    notes: payload.notes || "",
+    checklistLabels: scenarioSteps,
+    expectedResult: "",
+    testMethod: "",
+    sourceIssues: "",
+    validatedPoints: "",
+    advice: "",
+    references: "",
+  });
 }
 
 export function deleteCard(board, cardId) {
   const nextBoard = cloneBoard(board);
+  nextBoard.deletedCardIds = uniqueTexts([
+    ...(nextBoard.deletedCardIds || []),
+    cleanText(cardId),
+  ]);
   nextBoard.surfaces.forEach((surface) => {
     surface.pages.forEach((page) => {
       page.cards = page.cards.filter((card) => card.id !== cardId);
@@ -358,7 +333,111 @@ export function deleteCard(board, cardId) {
   nextBoard.surfaces = nextBoard.surfaces.filter(
     (surface) => surface.id !== CUSTOM_SURFACE_ID || surface.pages.length > 0,
   );
-  return normalizeBoardData(ensureCustomSurface(nextBoard.surfaces, nextBoard.meta));
+  return normalizeBoardData(
+    ensureCustomSurface(nextBoard.surfaces, nextBoard.meta, nextBoard.deletedCardIds),
+  );
+}
+
+export function upsertCardDefinition(board, payload = {}) {
+  const nextBoard = cloneBoard(board);
+  const cardId = cleanText(payload.id);
+  const existingContext = cardId ? findCardContext(nextBoard, cardId) : null;
+  const title = cleanText(payload.title);
+  const hasExplicitChecklist = Array.isArray(payload.checklistLabels);
+
+  if (!title) {
+    throw new Error("Le titre de la carte est obligatoire.");
+  }
+
+  const surfaceId = cleanText(payload.surfaceId)
+    || existingContext?.surface.id
+    || CUSTOM_SURFACE_ID;
+  const surfaceName = cleanText(payload.surfaceName)
+    || existingContext?.surface.name
+    || guessSurfaceName(surfaceId);
+  const pageName = cleanText(payload.pageName)
+    || existingContext?.page.name
+    || DEFAULT_PAGE_NAME;
+  const scenarioTitle = cleanText(payload.scenarioTitle) || title;
+  const checklistLabels = safeArray(payload.checklistLabels)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
+  const sourceIssues = parseLineCollection(payload.sourceIssues);
+  const validatedPoints = parseLineCollection(payload.validatedPoints);
+  const advice = parseLineCollection(payload.advice);
+  const references = parseLineCollection(payload.references);
+
+  if (existingContext) {
+    existingContext.page.cards = existingContext.page.cards.filter((card) => card.id !== cardId);
+  }
+
+  const baseCard = existingContext?.card || {
+    id: generateId("manual-card"),
+    title: "",
+    scenarioTitle: "",
+    status: "todo",
+    sourceStatus: "source-neutral",
+    severity: "major",
+    tester: "",
+    environment: "",
+    notes: "",
+    screenshots: [],
+    collapsed: true,
+    checklist: [],
+    sourceIssues: [],
+    validatedPoints: [],
+    advice: [],
+    references: [],
+    isManual: true,
+    legacyContext: {},
+  };
+
+  const nextCard = normalizeCard({
+    ...baseCard,
+    id: existingContext?.card.id || baseCard.id,
+    title,
+    scenarioTitle,
+    sourceStatus: normalizeSourceStatus(payload.sourceStatus || baseCard.sourceStatus),
+    severity: normalizeSeverity(payload.severity || baseCard.severity),
+    notes: typeof payload.notes === "string" ? payload.notes : baseCard.notes,
+    checklist: buildChecklistDefinition(
+      baseCard.checklist,
+      hasExplicitChecklist
+        ? checklistLabels
+        : checklistLabels.length
+        ? checklistLabels
+        : [`Réaliser le scénario principal "${scenarioTitle}" avec des données cohérentes.`],
+      scenarioTitle,
+    ),
+    sourceIssues,
+    validatedPoints,
+    advice,
+    references: uniqueTexts([
+      ...references,
+      ...extractMentions([
+        typeof payload.notes === "string" ? payload.notes : baseCard.notes,
+        ...references,
+      ]),
+    ]),
+    isManual: existingContext ? baseCard.isManual : true,
+    legacyContext: {
+      ...normalizeLegacyContext(baseCard.legacyContext),
+      description: String(payload.testMethod ?? payload.description ?? "").trim(),
+      expectedResult: String(payload.expectedResult ?? "").trim(),
+    },
+  });
+
+  const surface = ensureSurface(nextBoard, surfaceId, surfaceName);
+  const page = ensurePage(surface, pageName);
+  page.cards.push(nextCard);
+  page.cards.sort(sortCards);
+  surface.pages.sort(sortPages);
+  nextBoard.surfaces.sort(sortSurfaces);
+  nextBoard.deletedCardIds = (nextBoard.deletedCardIds || []).filter((id) => id !== nextCard.id);
+
+  return normalizeBoardData(
+    ensureCustomSurface(nextBoard.surfaces, nextBoard.meta, nextBoard.deletedCardIds),
+  );
 }
 
 export function setCardField(board, cardId, field, value) {
@@ -640,9 +719,7 @@ function normalizeCard(card = {}) {
       ]),
     ]),
     isManual: Boolean(card.isManual),
-    legacyContext: card.legacyContext && typeof card.legacyContext === "object"
-      ? card.legacyContext
-      : {},
+    legacyContext: normalizeLegacyContext(card.legacyContext),
   };
 
   return syncCardStatus(normalized);
@@ -665,6 +742,13 @@ function normalizeScenarioStep(step = {}, index = 0, scenarioTitle = "Carte QA")
     timestamp: step.timestamp || step.testedAt || "",
     tester: cleanText(step.tester || step.testedBy),
     origin: step.origin === "manual" ? "manual" : "seed",
+  };
+}
+
+function normalizeLegacyContext(context = {}) {
+  return {
+    description: String(context?.description ?? "").trim(),
+    expectedResult: String(context?.expectedResult ?? "").trim(),
   };
 }
 
@@ -759,6 +843,43 @@ function updateCard(board, cardId, updater) {
   return normalizeBoardData(nextBoard);
 }
 
+function buildChecklistDefinition(existingChecklist = [], labels = [], scenarioTitle = "Carte QA") {
+  return labels.map((label, index) => {
+    const existingItem = existingChecklist[index];
+    return {
+      id: existingItem?.id || generateId("chk"),
+      label: toUserScenarioStepLabel(label, scenarioTitle, index),
+      status: existingItem?.status || "pending",
+      bug: existingItem?.bug || createEmptyStepBug(),
+      timestamp: existingItem?.timestamp || "",
+      tester: existingItem?.tester || "",
+      origin: existingItem?.origin === "seed" ? "seed" : "manual",
+    };
+  });
+}
+
+function parseLineCollection(value) {
+  if (Array.isArray(value)) {
+    return uniqueTexts(value);
+  }
+
+  return uniqueTexts(String(value || "").split(/\n+/));
+}
+
+function findCardContext(board, cardId) {
+  for (const surface of board.surfaces) {
+    for (const page of surface.pages) {
+      for (const card of page.cards) {
+        if (card.id === cardId) {
+          return { surface, page, card };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 function ensureSurface(board, surfaceId, surfaceName) {
   let surface = board.surfaces.find((entry) => entry.id === surfaceId);
   if (surface) {
@@ -791,7 +912,7 @@ function ensurePage(surface, pageName) {
   return page;
 }
 
-function ensureCustomSurface(surfaces = [], meta) {
+function ensureCustomSurface(surfaces = [], meta, deletedCardIds = []) {
   const nextSurfaces = [...surfaces];
   if (!nextSurfaces.some((surface) => surface.id === CUSTOM_SURFACE_ID)) {
     nextSurfaces.push(
@@ -808,6 +929,7 @@ function ensureCustomSurface(surfaces = [], meta) {
     return {
       meta,
       surfaces: nextSurfaces,
+      deletedCardIds,
     };
   }
 

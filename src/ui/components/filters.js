@@ -1,7 +1,7 @@
 import {
   getPageOptions,
   getSurfaceOptions,
-} from "../../core/state.js?v=20260407-ui-fixes-2";
+} from "../../core/state.js?v=20260409-crud-cards-3";
 
 export function syncSidebarOptions(board, elements, filters) {
   hydrateSelect(
@@ -20,6 +20,19 @@ export function syncSidebarOptions(board, elements, filters) {
     elements.newCardSurface,
     getSurfaceOptions(board),
     elements.newCardSurface.value || "manager",
+  );
+
+  const editorSurfaceId = elements.newCardSurface?.value || "manager";
+  hydrateSelect(
+    elements.newCardPage,
+    [
+      { id: "", name: "Sélectionner page" },
+      ...getPageOptions(board, editorSurfaceId).map((option) => ({
+        id: option.name,
+        name: option.name,
+      })),
+    ],
+    elements.newCardPage.value || "",
   );
 }
 
@@ -43,7 +56,7 @@ function hydrateSelect(select, options, selectedValue) {
     ? selectedValue
     : options[0]?.id;
 
-  if (fallbackValue) {
+  if (fallbackValue !== undefined) {
     select.value = fallbackValue;
   }
 }
