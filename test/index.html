@@ -6,17 +6,16 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <title>QareData QA Board - Refonte Professionnelle</title>
+  <base href="../" />
+  <title>QareData QA Board - Mode Test</title>
   <link rel="icon" type="image/svg+xml" href="./assets/favicon-checklist.svg?v=20260409-test-route-1" />
   <link rel="shortcut icon" href="./assets/favicon-checklist.svg?v=20260409-test-route-1" />
   <link rel="stylesheet" href="./styles.css?v=20260409-test-route-1" />
   <link rel="stylesheet" href="./minimal-cards.css?v=20260409-test-route-1" />
 </head>
 <body>
-  <!-- ===== HEADER GLOBAL ===== -->
   <header class="app-header">
     <div class="header-content">
-      <!-- Logo et Titre -->
       <div class="header-main">
         <div class="header-main__identity logo-section">
           <div class="logo" aria-hidden="true">
@@ -29,7 +28,6 @@
           </div>
         </div>
 
-        <!-- Actions principales en haut -->
         <div class="header-actions">
           <button class="btn btn-success" id="generate-pdf" title="Exporter PDF">
             <span>📄</span>
@@ -51,7 +49,6 @@
         </div>
       </div>
 
-      <!-- Barre de métadonnées -->
       <div class="header-metadata">
         <div class="header-meta-card">
           <div class="metadata-field">
@@ -73,18 +70,13 @@
         </div>
       </div>
 
-      <!-- KPI rapides (summary-root) -->
       <div class="header-kpi" id="summary-root"></div>
     </div>
   </header>
 
-  <!-- ===== ZONE PRINCIPALE ===== -->
   <main class="app-main">
-    <aside class="sidebar-sections" id="sidebar-nav-root" aria-label="Navigation latérale">
-      <!-- Généré dynamiquement -->
-    </aside>
+    <aside class="sidebar-sections" id="sidebar-nav-root" aria-label="Navigation latérale"></aside>
 
-    <!-- Barre de création de carte manuelle -->
     <aside class="create-card-panel">
       <h3>➕ Créer une carte manuelle</h3>
       <div class="create-card-form">
@@ -97,12 +89,7 @@
           </select>
         </div>
         <div class="form-row">
-          <input 
-            type="text" 
-            id="new-card-title" 
-            placeholder="Titre de la carte" 
-            class="form-control"
-          />
+          <input type="text" id="new-card-title" placeholder="Titre de la carte" class="form-control" />
         </div>
         <div class="form-row">
           <select id="new-card-severity" class="form-control">
@@ -112,20 +99,10 @@
           </select>
         </div>
         <div class="form-row">
-          <textarea 
-            id="new-card-notes" 
-            placeholder="Notes additionnelles" 
-            class="form-control"
-            rows="2"
-          ></textarea>
+          <textarea id="new-card-notes" placeholder="Notes additionnelles" class="form-control" rows="2"></textarea>
         </div>
         <div class="form-row">
-          <textarea 
-            id="new-card-checklist" 
-            placeholder="Étapes du scénario utilisateur (une ligne par étape)" 
-            class="form-control"
-            rows="2"
-          ></textarea>
+          <textarea id="new-card-checklist" placeholder="Étapes du scénario utilisateur (une ligne par étape)" class="form-control" rows="2"></textarea>
         </div>
         <button class="btn btn-success" id="create-card">
           ✅ Créer la carte
@@ -133,14 +110,9 @@
       </div>
     </aside>
 
-    <!-- Zone centrale: Cartes -->
     <article class="content-area">
-      <!-- Vue liste des cartes (board-root) -->
-      <section class="board-root" id="board-root">
-        <!-- Généré dynamiquement -->
-      </section>
+      <section class="board-root" id="board-root"></section>
 
-      <!-- Vue vide -->
       <section class="empty-state" id="empty-state" style="display: none;">
         <div class="empty-icon">📭</div>
         <h2>Aucune carte correspondante</h2>
@@ -149,17 +121,13 @@
     </article>
   </main>
 
-  <!-- ===== MODAL: DÉTAIL CARTE ===== -->
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal-container">
       <button class="modal-close" id="modal-close">&times;</button>
-      
-      <div class="modal-content" id="modal-content">
-        <!-- Rempli dynamiquement -->
-      </div>
+      <div class="modal-content" id="modal-content"></div>
     </div>
   </div>
-  <!-- Scripts -->
+
   <script type="module" src="./src/main.js?v=20260409-test-route-1"></script>
 </body>
 </html>

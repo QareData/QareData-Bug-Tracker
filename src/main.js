@@ -63,6 +63,7 @@ async function init() {
   bindEvents();
   render();
   updateSaveStatus("Board QA chargé. Sauvegarde locale active.");
+  maybeRunTestMode();
 }
 
 function bindEvents() {
@@ -123,7 +124,6 @@ function bindEvents() {
   elements.importInput?.addEventListener("change", handleImportJson);
   elements.generateMarkdownButton.addEventListener("click", handleGenerateMarkdown);
   elements.generatePdfButton.addEventListener("click", handleGeneratePdf);
-  elements.randomTestButton?.addEventListener("click", handleRandomTestRun);
   elements.resetButton.addEventListener("click", handleReset);
   elements.themeButton?.addEventListener("click", handleThemeToggle);
   elements.sidebarRoot?.addEventListener("click", handleSidebarNavigationClick);
@@ -321,6 +321,16 @@ function handleRandomTestRun() {
     console.error(error);
     updateSaveStatus("La simulation QA a échoué.");
   }
+}
+
+function maybeRunTestMode() {
+  if (!isTestModeRoute()) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    handleRandomTestRun();
+  }, 80);
 }
 
 function handleBoardClick(event) {
@@ -794,6 +804,11 @@ function initSidebarState() {
   document.body.classList.toggle("sidebar-collapsed", isCollapsed);
 }
 
+function isTestModeRoute() {
+  const path = String(window.location.pathname || "").replace(/\/+$/, "");
+  return /\/test(?:\/index\.html)?$/.test(path);
+}
+
 function toggleSidebarCollapsed() {
   const isCollapsed = document.body.classList.toggle("sidebar-collapsed");
   localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isCollapsed));
@@ -964,7 +979,6 @@ function getElements() {
 
     generateMarkdownButton: document.querySelector("#generate-markdown"),
     generatePdfButton: document.querySelector("#generate-pdf"),
-    randomTestButton: document.querySelector("#run-random-test"),
     exportButton: document.querySelector("#export-json"),
     importInput: document.querySelector("#file-import"),
     importButton: document.querySelector("#import-json"),
