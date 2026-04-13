@@ -1,0 +1,263 @@
+@media (max-width: 1180px) {
+  .header-meta-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .form-row--double,
+  .create-card-panel__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .page-section .cards-grid,
+  .card-modal__grid,
+  .card-modal__panels,
+  .card-modal__detail-layout,
+  .qa-source-grid,
+  .qa-step__bug-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-header {
+    padding-top: 14px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .header-main {
+    padding: 20px 18px;
+  }
+
+  .logo {
+    width: min(240px, 58vw);
+  }
+
+  .header-main,
+  .surface-section,
+  .page-section,
+  .qa-card__summary {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .header-main,
+  .surface-section__header,
+  .page-section__header,
+  .qa-card__summary-top,
+  .qa-panel__head,
+  .card-modal__header,
+  .qa-scenario-step__main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .surface-section__stats,
+  .page-section__meta,
+  .card-modal__badges,
+  .qa-scenario-step__actions,
+  .qa-step__bug-actions {
+    justify-content: flex-start;
+  }
+
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .app-main {
+    flex-direction: column;
+  }
+
+  .sidebar-sections,
+  body.sidebar-collapsed .sidebar-sections {
+    width: 100%;
+    max-height: none;
+    position: static;
+    padding: 14px;
+  }
+
+  body.sidebar-collapsed .sidebar-heading,
+  body.sidebar-collapsed .sidebar-group__title,
+  body.sidebar-collapsed .sidebar-nav-item__label,
+  body.sidebar-collapsed .sidebar-nav-item__count {
+    display: block;
+  }
+
+  body.sidebar-collapsed .sidebar-heading {
+    display: grid;
+  }
+
+  body.sidebar-collapsed .sidebar-nav-item__count {
+    display: inline-flex;
+  }
+
+  body.sidebar-collapsed .sidebar-header {
+    justify-content: space-between;
+  }
+
+  body.sidebar-collapsed .sidebar-nav-item {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    justify-items: stretch;
+    padding: 10px 12px;
+  }
+
+  .summary-line {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .create-card-panel__header {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-right: 0;
+  }
+
+  .filter-content {
+    padding: 12px;
+  }
+
+  .modal-content {
+    padding: 22px 18px 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .card-modal__context-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-content {
+    gap: 12px;
+  }
+
+  .header-main {
+    padding: 18px 16px;
+    border-radius: 22px;
+  }
+
+  .logo {
+    width: min(220px, 72vw);
+    padding: 12px 14px;
+    border-radius: 22px;
+  }
+
+  .header-meta-card {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-line {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .qa-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .metadata-field {
+    padding: 16px;
+  }
+
+  .app-title {
+    font-size: 28px;
+  }
+
+  .app-description {
+    font-size: 14px;
+  }
+
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .theme-toggle {
+    width: 100%;
+  }
+
+  .theme-toggle .btn {
+    width: 100%;
+  }
+
+  .app-main {
+    padding: 16px 12px 28px;
+  }
+
+  .sidebar-sections,
+  body.sidebar-collapsed .sidebar-sections {
+    padding: 12px;
+    border-radius: 20px;
+  }
+
+  .card-editor-step {
+    grid-template-columns: 1fr;
+  }
+
+  .card-editor-step__index {
+    justify-self: start;
+  }
+
+  .surface-section,
+  .page-section {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .qa-card {
+    border-radius: 16px;
+  }
+
+  .qa-card__title {
+    font-size: 16px;
+  }
+
+  .qa-card__metrics-line {
+    font-size: 12px;
+  }
+
+  .qa-inline-form {
+    grid-template-columns: 1fr;
+  }
+
+  .toggle-checkbox {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-container {
+    width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+
+  .modal-container--editor {
+    width: calc(100vw - 24px);
+  }
+
+  .modal-content {
+    max-height: calc(100vh - 24px);
+    padding: 18px 14px 14px;
+  }
+
+  .modal-content--editor {
+    padding: 22px 16px 16px;
+  }
+
+  .card-modal__title {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa-card,
+  .button,
+  .qa-progress span,
+  .qa-dropzone {
+    transition: none;
+  }
+}
