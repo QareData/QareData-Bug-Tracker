@@ -2293,6 +2293,113 @@ body.dark-mode .button.secondary {
   color: #ffffff;
 }
 
+body.dark-mode .btn-primary,
+body.dark-mode .btn-success,
+body.dark-mode .button.secondary,
+body.dark-mode .sidebar-nav-item.is-active {
+  border-color: rgba(141, 214, 255, 0.3);
+  box-shadow: 0 16px 30px rgba(0, 0, 0, 0.38);
+}
+
+body.dark-mode .btn-primary,
+body.dark-mode .btn-success {
+  background: linear-gradient(135deg, #1e3f86, #2b63d5);
+  color: #f7fbff;
+}
+
+body.dark-mode .btn-primary:hover,
+body.dark-mode .btn-success:hover,
+body.dark-mode .button.secondary:hover,
+body.dark-mode .sidebar-nav-item.is-active:hover {
+  background: linear-gradient(135deg, #2450a8, #3a75eb);
+  border-color: rgba(141, 214, 255, 0.44);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.42);
+}
+
+body.dark-mode .button {
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+body.dark-mode .button.danger {
+  color: #ff9f9a;
+  border-color: rgba(255, 122, 122, 0.48);
+  background: rgba(217, 45, 32, 0.14);
+}
+
+body.dark-mode .button.danger:hover {
+  background: rgba(217, 45, 32, 0.24);
+  border-color: rgba(255, 122, 122, 0.64);
+}
+
+body.dark-mode .theme-toggle .btn[aria-pressed="true"] {
+  background: linear-gradient(135deg, rgba(17, 45, 97, 0.6), rgba(110, 231, 183, 0.22));
+  border-color: rgba(110, 231, 183, 0.34);
+}
+
+body.dark-mode .btn-ghost,
+body.dark-mode .button.tertiary,
+body.dark-mode .button.ghost,
+body.dark-mode .sidebar-toggle,
+body.dark-mode .modal-close {
+  background: linear-gradient(135deg, rgba(35, 57, 108, 0.82), rgba(23, 40, 79, 0.88));
+  border-color: rgba(141, 214, 255, 0.34);
+  color: #ecf3ff;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+}
+
+body.dark-mode .btn-ghost:hover,
+body.dark-mode .button.tertiary:hover,
+body.dark-mode .button.ghost:hover,
+body.dark-mode .sidebar-toggle:hover,
+body.dark-mode .modal-close:hover {
+  background: linear-gradient(135deg, rgba(51, 83, 152, 0.92), rgba(33, 58, 110, 0.92));
+  border-color: rgba(141, 214, 255, 0.52);
+  color: #ffffff;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-mode .theme-toggle .btn:not([aria-pressed="true"]) {
+  background: linear-gradient(135deg, rgba(28, 47, 92, 0.86), rgba(18, 33, 68, 0.92));
+  border-color: rgba(141, 214, 255, 0.3);
+  color: #cfe0ff;
+}
+
+body.dark-mode .theme-toggle .btn:not([aria-pressed="true"]):hover {
+  background: linear-gradient(135deg, rgba(44, 72, 132, 0.94), rgba(27, 49, 96, 0.94));
+  border-color: rgba(141, 214, 255, 0.5);
+  color: #ffffff;
+}
+
+body.dark-mode .qa-step-action--ok {
+  border-color: rgba(74, 222, 128, 0.44);
+  color: #86efac;
+  background: rgba(22, 101, 52, 0.22);
+}
+
+body.dark-mode .qa-step-action--ok:hover,
+body.dark-mode .qa-step-action--ok.is-active {
+  border-color: rgba(74, 222, 128, 0.68);
+  color: #dcfce7;
+  background: linear-gradient(135deg, rgba(21, 128, 61, 0.62), rgba(22, 163, 74, 0.46));
+  box-shadow: 0 10px 22px rgba(22, 101, 52, 0.42);
+}
+
+body.dark-mode .qa-step-action--ko {
+  border-color: rgba(252, 165, 165, 0.42);
+  color: #fda4af;
+  background: rgba(127, 29, 29, 0.2);
+}
+
+body.dark-mode .qa-step-action--ko:hover,
+body.dark-mode .qa-step-action--ko.is-active,
+body.dark-mode .qa-scenario-step.is-bug-open .qa-step-action--ko {
+  border-color: rgba(252, 165, 165, 0.66);
+  color: #ffe4e6;
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.58), rgba(244, 63, 94, 0.4));
+  box-shadow: 0 10px 22px rgba(153, 27, 27, 0.4);
+}
+
 body.dark-mode .sidebar-nav-item.is-active {
   background: linear-gradient(135deg, var(--brand-navy), var(--brand-blue));
   color: #ffffff;
