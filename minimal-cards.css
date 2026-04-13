@@ -105,6 +105,10 @@
 :root {
   --font-display: "Quantify", "Poppins", "Segoe UI", sans-serif;
   --font-body: "Poppins", "Segoe UI", sans-serif;
+  --theme-transition-duration-to-dark: 1000ms;
+  --theme-transition-duration-to-light: 950ms;
+  --theme-transition-stagger: 280ms;
+  --theme-transition-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   --brand-blue: #003fb5;
   --brand-royal: #0a3585;
@@ -223,6 +227,113 @@ body::after {
   width: 260px;
   height: 260px;
   background: radial-gradient(circle, rgba(110, 231, 183, 0.22) 0%, transparent 72%);
+}
+
+body.is-theme-transitioning {
+  overflow: hidden;
+}
+
+body.is-theme-transitioning,
+body.is-theme-transitioning * {
+  transition-property: background-color, color, border-color, box-shadow, fill, stroke;
+  transition-duration: var(--theme-transition-duration-to-dark);
+  transition-timing-function: var(--theme-transition-ease);
+  transition-delay: var(--theme-transition-delay, 0ms);
+}
+
+body.is-theme-transitioning.theme-direction-up,
+body.is-theme-transitioning.theme-direction-up * {
+  transition-duration: var(--theme-transition-duration-to-light);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-timing-function: var(--theme-transition-ease);
+    animation-fill-mode: both;
+    mix-blend-mode: normal;
+  }
+
+  html[data-theme-transition-direction="to-dark"]::view-transition-old(root),
+  html[data-theme-transition-direction="to-dark"]::view-transition-new(root) {
+    animation-duration: var(--theme-transition-duration-to-dark);
+  }
+
+  html[data-theme-transition-direction="to-dark"]::view-transition-old(root) {
+    animation-name: theme-view-transition-old-to-dark;
+  }
+
+  html[data-theme-transition-direction="to-dark"]::view-transition-new(root) {
+    animation-name: theme-view-transition-new-to-dark;
+  }
+
+  html[data-theme-transition-direction="to-light"]::view-transition-old(root),
+  html[data-theme-transition-direction="to-light"]::view-transition-new(root) {
+    animation-duration: var(--theme-transition-duration-to-light);
+  }
+
+  html[data-theme-transition-direction="to-light"]::view-transition-old(root) {
+    animation-name: theme-view-transition-old-to-light;
+  }
+
+  html[data-theme-transition-direction="to-light"]::view-transition-new(root) {
+    animation-name: theme-view-transition-new-to-light;
+  }
+}
+
+@keyframes theme-view-transition-old-to-dark {
+  from {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+
+  to {
+    clip-path: inset(100% 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes theme-view-transition-new-to-dark {
+  from {
+    clip-path: inset(0 0 100% 0);
+    opacity: 1;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@keyframes theme-view-transition-old-to-light {
+  from {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+
+  to {
+    clip-path: inset(0 0 100% 0);
+    opacity: 1;
+  }
+}
+
+@keyframes theme-view-transition-new-to-light {
+  from {
+    clip-path: inset(100% 0 0 0);
+    opacity: 1;
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.is-theme-transitioning,
+  body.is-theme-transitioning * {
+    transition: none !important;
+  }
 }
 
 .create-card-panel {
