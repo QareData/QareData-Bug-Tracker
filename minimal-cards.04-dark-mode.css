@@ -1,5 +1,13 @@
 body.dark-mode .logo {
-  background: #1f2937;
+  background: #002d6b;
+}
+
+body.dark-mode .logo__image--light {
+  display: none;
+}
+
+body.dark-mode .logo__image--dark {
+  display: block;
 }
 
 body.dark-mode .btn-ghost,

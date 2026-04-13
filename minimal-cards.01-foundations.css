@@ -604,14 +604,14 @@ body.is-theme-transitioning.theme-direction-up * {
   flex-shrink: 0;
 }
 
-body.dark-mode .logo {
-  background: #1f2937;
-}
-
 .logo__image {
   display: block;
   width: 100%;
   height: auto;
+}
+
+.logo__image--dark {
+  display: none;
 }
 
 .title-section {
