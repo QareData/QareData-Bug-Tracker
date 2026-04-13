@@ -1469,6 +1469,12 @@ body.sidebar-collapsed .sidebar-nav-item:hover {
   line-height: 1.35;
 }
 
+.field[data-required="true"] > span::after {
+  content: " *";
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
 .card-select,
 .card-text-input,
 .new-checklist-input,
@@ -1482,6 +1488,18 @@ body.sidebar-collapsed .sidebar-nav-item:hover {
   padding: 14px;
   resize: vertical;
   line-height: 1.55;
+}
+
+.field.is-invalid > span {
+  color: var(--color-danger);
+}
+
+.field.is-invalid .card-select,
+.field.is-invalid .card-text-input,
+.field.is-invalid .card-textarea {
+  border-color: rgba(217, 45, 32, 0.7);
+  box-shadow: 0 0 0 4px rgba(217, 45, 32, 0.12);
+  background: rgba(255, 244, 244, 0.98);
 }
 
 .textarea-field {
@@ -2112,6 +2130,14 @@ body.dark-mode .card-modal__summary span,
 body.dark-mode .card-modal__context-block,
 body.dark-mode .card-modal__grid .field {
   background: rgba(255, 255, 255, 0.04);
+}
+
+body.dark-mode .field.is-invalid .card-select,
+body.dark-mode .field.is-invalid .card-text-input,
+body.dark-mode .field.is-invalid .card-textarea {
+  border-color: rgba(255, 122, 122, 0.86);
+  box-shadow: 0 0 0 4px rgba(217, 45, 32, 0.18);
+  background: rgba(82, 20, 27, 0.4);
 }
 
 body.dark-mode .metadata-field,

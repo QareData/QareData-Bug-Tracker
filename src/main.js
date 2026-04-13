@@ -127,6 +127,8 @@ function bindEvents() {
   elements.cancelCardEditorButton?.addEventListener("click", handleCancelCardEditor);
   elements.deleteCardEditorButton?.addEventListener("click", handleDeleteEditorCard);
   elements.newCardSurface?.addEventListener("change", handleCardEditorSurfaceChange);
+  elements.cardEditorPanel?.addEventListener("input", handleCardEditorValidationInteraction);
+  elements.cardEditorPanel?.addEventListener("change", handleCardEditorValidationInteraction);
   elements.newCardChecklistCount?.addEventListener("change", handleChecklistCountChange);
   elements.addChecklistStepButton?.addEventListener("click", handleAddChecklistStep);
   elements.cardEditorChecklistRoot?.addEventListener("click", handleCardEditorChecklistClick);
@@ -210,6 +212,14 @@ function handleCreateCard() {
   const previousCardId = cardEditorState.cardId;
   const nextCardId = previousCardId || generateId("manual-card");
   const isEditing = Boolean(previousCardId);
+  const validation = validateCardEditorRequiredFields();
+
+  if (!validation.isValid) {
+    focusFirstInvalidCardEditorField(validation.missingFields);
+    updateSaveStatus("Complète les champs obligatoires avant d'enregistrer la carte.");
+    window.alert(buildCardEditorValidationMessage(validation.missingLabels));
+    return;
+  }
 
   try {
     const payload = readCardEditorPayload(nextCardId);
@@ -225,9 +235,18 @@ function handleCreateCard() {
     } else {
       cardEditorState.cardId = previousCardId;
     }
+
+    if (!isEditing) {
+      window.alert(
+        "La carte a bien été ajoutée localement.\n\nPour qu'elle soit vraiment prise en compte, exporte le JSON puis envoie-le sur Discord ou remplace le fichier sur GitHub.",
+      );
+    }
   } catch (error) {
     cardEditorState.cardId = previousCardId;
     updateSaveStatus(error instanceof Error ? error.message : "Impossible d'enregistrer la carte.");
+    if (error instanceof Error && error.message) {
+      window.alert(error.message);
+    }
     elements.newCardTitle?.focus();
   }
 }
@@ -363,6 +382,7 @@ function populateCardEditor(context) {
     elements.newCardNotes.value = card.notes || "";
   }
 
+  clearCardEditorValidation();
   renderCardEditorChecklist((card.checklist || []).map((item) => item.label || ""));
   syncCardEditorUi();
 }
@@ -427,6 +447,7 @@ function resetCardEditor() {
     elements.newCardNotes.value = "";
   }
 
+  clearCardEditorValidation();
   renderCardEditorChecklist(["", "", ""]);
   syncCardEditorUi();
 }
@@ -471,6 +492,109 @@ function readCardEditorPayload(cardId) {
     notes: elements.newCardNotes?.value || "",
     checklistLabels: getCardEditorChecklistValues(),
   };
+}
+
+function validateCardEditorRequiredFields() {
+  clearCardEditorValidation();
+
+  const checks = [
+    {
+      label: "Surface",
+      fields: [elements.newCardSurface],
+      isValid: () => Boolean(String(elements.newCardSurface?.value || "").trim()),
+    },
+    {
+      label: "Page existante ou nouvelle page",
+      fields: [elements.newCardPage, elements.newCardPageCustom],
+      isValid: () =>
+        Boolean(
+          String(elements.newCardPage?.value || "").trim()
+          || String(elements.newCardPageCustom?.value || "").trim(),
+        ),
+    },
+    {
+      label: "Titre de la carte",
+      fields: [elements.newCardTitle],
+      isValid: () => Boolean(String(elements.newCardTitle?.value || "").trim()),
+    },
+    {
+      label: "Méthode de test / contexte",
+      fields: [elements.newCardMethod],
+      isValid: () => Boolean(String(elements.newCardMethod?.value || "").trim()),
+    },
+    {
+      label: "Résultat attendu",
+      fields: [elements.newCardExpectedResult],
+      isValid: () => Boolean(String(elements.newCardExpectedResult?.value || "").trim()),
+    },
+  ];
+
+  const missing = checks.filter((check) => !check.isValid());
+  missing.forEach((check) => {
+    check.fields.forEach((field) => setCardEditorFieldInvalid(field, true));
+  });
+
+  return {
+    isValid: missing.length === 0,
+    missingFields: missing.flatMap((check) => check.fields).filter(Boolean),
+    missingLabels: missing.map((check) => check.label),
+  };
+}
+
+function handleCardEditorValidationInteraction(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement)) {
+    return;
+  }
+
+  if (!target.closest("#card-editor-panel")) {
+    return;
+  }
+
+  if (target === elements.newCardPage || target === elements.newCardPageCustom) {
+    setCardEditorFieldInvalid(elements.newCardPage, false);
+    setCardEditorFieldInvalid(elements.newCardPageCustom, false);
+    return;
+  }
+
+  setCardEditorFieldInvalid(target, false);
+}
+
+function clearCardEditorValidation() {
+  [
+    elements.newCardSurface,
+    elements.newCardPage,
+    elements.newCardPageCustom,
+    elements.newCardTitle,
+    elements.newCardMethod,
+    elements.newCardExpectedResult,
+  ].forEach((field) => setCardEditorFieldInvalid(field, false));
+}
+
+function setCardEditorFieldInvalid(field, isInvalid) {
+  if (!field) {
+    return;
+  }
+
+  field.toggleAttribute("aria-invalid", isInvalid);
+  field.closest(".field")?.classList.toggle("is-invalid", isInvalid);
+}
+
+function focusFirstInvalidCardEditorField(fields = []) {
+  const firstField = fields.find(Boolean);
+  firstField?.focus();
+}
+
+function buildCardEditorValidationMessage(labels = []) {
+  if (!labels.length) {
+    return "Complète les champs obligatoires avant d'enregistrer la carte.";
+  }
+
+  return [
+    "Complète les champs obligatoires avant d'enregistrer la carte :",
+    "",
+    ...labels.map((label) => `- ${label}`),
+  ].join("\n");
 }
 
 function syncCardEditorUi() {

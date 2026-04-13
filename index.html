@@ -24,7 +24,7 @@
           </div>
           <div class="title-section">
             <span class="header-eyebrow">Pilotage QA</span>
-            <h1 class="app-title" id="header-project-title">QareData QA Board</h1>
+            <h1 class="app-title" id="header-project-title">Dashboard QA</h1>
             <p class="app-description" id="header-project-subtitle">Vue d'ensemble des campagnes de recette, criticités et exports.</p>
           </div>
         </div>
@@ -131,22 +131,22 @@
         <section class="create-card-panel create-card-panel--modal" id="card-editor-panel">
           <div class="create-card-panel__header">
             <div>
-              <p class="create-card-panel__eyebrow">CRUD cartes</p>
+              <p class="create-card-panel__eyebrow">Nouvelles cartes</p>
               <h3 id="card-editor-title">Ajouter une carte</h3>
-              <p class="create-card-panel__subtitle" id="card-editor-subtitle">Les modifications sont stockées localement. Exporte le JSON pour les publier sur GitHub.</p>
+              <p class="create-card-panel__subtitle" id="card-editor-subtitle">Les modifications sont stockées localement. Il faut exporter le JSON pour les publier sur GitHub.</p>
             </div>
             <span class="create-card-panel__badge" id="card-editor-badge">Création</span>
           </div>
 
           <div class="create-card-form">
             <div class="form-row form-row--double">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Surface</span>
                 <select id="new-card-surface" class="card-select">
                   <option value="">Sélectionner surface</option>
                 </select>
               </label>
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Page existante</span>
                 <select id="new-card-page" class="card-select">
                   <option value="">Sélectionner page</option>
@@ -155,7 +155,7 @@
             </div>
 
             <div class="form-row">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Nouvelle page ou renommage</span>
                 <input
                   type="text"
@@ -167,7 +167,7 @@
             </div>
 
             <div class="form-row form-row--double">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Titre de la carte</span>
                 <input
                   type="text"
@@ -207,7 +207,7 @@
             </div>
 
             <div class="form-row">
-              <label class="field textarea-field">
+              <label class="field textarea-field" data-required="true">
                 <span>Méthode de test / contexte</span>
                 <textarea
                   id="new-card-method"
@@ -218,7 +218,7 @@
             </div>
 
             <div class="form-row">
-              <label class="field textarea-field">
+              <label class="field textarea-field" data-required="true">
                 <span>Résultat attendu</span>
                 <textarea
                   id="new-card-expected-result"

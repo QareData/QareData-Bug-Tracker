@@ -23,7 +23,7 @@
           </div>
           <div class="title-section">
             <span class="header-eyebrow">Pilotage QA</span>
-            <h1 class="app-title" id="header-project-title">QareData QA Board</h1>
+            <h1 class="app-title" id="header-project-title">Dashboard QA</h1>
             <p class="app-description" id="header-project-subtitle">Vue d'ensemble des campagnes de recette, criticités et exports.</p>
           </div>
         </div>
@@ -123,13 +123,13 @@
 
           <div class="create-card-form">
             <div class="form-row form-row--double">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Surface</span>
                 <select id="new-card-surface" class="card-select">
                   <option value="">Sélectionner surface</option>
                 </select>
               </label>
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Page existante</span>
                 <select id="new-card-page" class="card-select">
                   <option value="">Sélectionner page</option>
@@ -138,14 +138,14 @@
             </div>
 
             <div class="form-row">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Nouvelle page ou renommage</span>
                 <input type="text" id="new-card-page-custom" placeholder="Nom de page personnalisé si besoin" class="card-text-input" />
               </label>
             </div>
 
             <div class="form-row form-row--double">
-              <label class="field">
+              <label class="field" data-required="true">
                 <span>Titre de la carte</span>
                 <input type="text" id="new-card-title" placeholder="Ex. Modifier une organisation" class="card-text-input" />
               </label>
@@ -175,14 +175,14 @@
             </div>
 
             <div class="form-row">
-              <label class="field textarea-field">
+              <label class="field textarea-field" data-required="true">
                 <span>Méthode de test / contexte</span>
                 <textarea id="new-card-method" placeholder="Comment le flux doit être rejoué, dans quel contexte et avec quelles vérifications." class="card-textarea"></textarea>
               </label>
             </div>
 
             <div class="form-row">
-              <label class="field textarea-field">
+              <label class="field textarea-field" data-required="true">
                 <span>Résultat attendu</span>
                 <textarea id="new-card-expected-result" placeholder="Décris précisément le résultat fonctionnel attendu." class="card-textarea"></textarea>
               </label>
