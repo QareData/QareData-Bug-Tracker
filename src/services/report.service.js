@@ -1,4 +1,5 @@
-import { PDF_BRAND } from "../utils/constants.js?v=20260407-pdf-phase1-1";
+import { buildContextDescription, buildContextExpected } from "../core/card-context.js";
+import { PDF_BRAND } from "../utils/constants.js";
 import {
   blockQuoteMarkdown,
   cleanText,
@@ -8,7 +9,7 @@ import {
   formatPercent,
   formatReportDate,
   uniqueTexts,
-} from "../utils/format.js?v=20260407-pdf-phase1-1";
+} from "../utils/format.js";
 import {
   flattenBoard,
   getBoardMetrics,
@@ -18,7 +19,7 @@ import {
   getSeverityMeta,
   getSourceStatusMeta,
   getSurfaceMetrics,
-} from "../core/state.js?v=20260407-pdf-phase1-1";
+} from "../core/state.js";
 
 export function buildReportModel(board, generatedAt = new Date()) {
   const metrics = getBoardMetrics(board);
@@ -420,22 +421,6 @@ function buildTestDescription(card) {
     .join(" "));
 }
 
-function buildContextDescription(card) {
-  if (card.legacyContext?.description) {
-    return cleanText(card.legacyContext.description);
-  }
-
-  if (card.sourceIssues.length) {
-    return `Point d'attention initial : ${card.sourceIssues.join(" ")}`;
-  }
-
-  if (card.validatedPoints.length) {
-    return `Historique connu : ${card.validatedPoints.join(" ")}`;
-  }
-
-  return "";
-}
-
 function buildWorkingItems(card, scenarioSteps) {
   return uniqueTexts([
     ...scenarioSteps.filter((step) => step.status === "ok").map((step) => step.label),
@@ -500,16 +485,6 @@ function buildSummaryText(metrics, reportStats) {
     `Le score QA global atteint ${reportStats.scorePercent}%, avec ${metrics.blockersCount} point(s) bloquant(s) encore ouvert(s).`,
     `${metrics.notesCount} carte(s) contiennent des notes terrain et ${metrics.screenshotsCount} capture(s) sont déjà jointes au board.`,
   ].join(" ");
-}
-
-function buildContextExpected(card) {
-  if (card.legacyContext?.expectedResult) {
-    return cleanText(card.legacyContext.expectedResult);
-  }
-
-  return cleanText(
-    card.advice.join(" ") || card.validatedPoints.join(" "),
-  ) || "Le scénario doit se dérouler de façon cohérente, stable et compréhensible pour l'utilisateur final.";
 }
 
 function buildStepStamp(timestamp, tester, status) {

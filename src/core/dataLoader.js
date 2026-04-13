@@ -5,9 +5,9 @@ import {
   LEGACY_STORAGE_KEYS,
   STORAGE_KEY,
   STORAGE_VERSION,
-} from "../utils/constants.js?v=20260407-ui-fixes-2";
-import { cleanText, generateId } from "../utils/format.js?v=20260407-ui-fixes-2";
-import { cloneBoard, normalizeBoardData } from "./state.js?v=20260409-crud-cards-3";
+} from "../utils/constants.js";
+import { cleanText, generateId } from "../utils/format.js";
+import { cloneBoard, normalizeBoardData } from "./state.js";
 
 export async function loadCards() {
   const currentState = readStoredBoard(STORAGE_KEY);

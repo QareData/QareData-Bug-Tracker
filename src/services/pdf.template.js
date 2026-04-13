@@ -3,7 +3,7 @@ import {
   escapeHtml,
   formatPercent,
   formatReportDate,
-} from "../utils/format.js?v=20260407-pdf-phase1-1";
+} from "../utils/format.js";
 
 export function buildPrintablePdfDocument(report, options = {}) {
   const baseHref = options.baseHref || window.location.href;

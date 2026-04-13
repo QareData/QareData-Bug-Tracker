@@ -6,8 +6,8 @@ import {
   saveScenarioStepBug,
   setCardField,
   updateBoardMeta,
-} from "../core/state.js?v=20260407-pdf-phase1-1";
-import { cleanText, generateId } from "../utils/format.js?v=20260407-pdf-phase1-1";
+} from "../core/state.js";
+import { clamp, cleanText, generateId, slugify, truncateText } from "../utils/format.js";
 
 const DEFAULT_CHAOS_LEVEL = 35;
 const TESTER_POOL = [
@@ -398,7 +398,7 @@ function createSyntheticScreenshot(entry, card, context) {
 
   graphic.fillStyle = "#112d61";
   graphic.font = '700 28px "Poppins", sans-serif';
-  graphic.fillText(truncateForShot(card.title, 58), 88, 240);
+  graphic.fillText(truncateText(card.title, 58), 88, 240);
 
   graphic.fillStyle = "#4f6388";
   graphic.font = '500 20px "Poppins", sans-serif';
@@ -435,7 +435,7 @@ function createSyntheticScreenshot(entry, card, context) {
 
   return {
     id: generateId("shot-sim"),
-    name: `simulation-${sanitizeShotName(card.title)}-${context.index + 1}.jpg`,
+    name: `simulation-${slugify(card.title || "carte").slice(0, 32) || "carte"}-${context.index + 1}.jpg`,
     dataUrl: canvas.toDataURL("image/jpeg", 0.9),
     createdAt: new Date().toISOString(),
   };
@@ -533,7 +533,7 @@ function pickWeightedSeverity(chaosLevel) {
 
 function resolveCardsToTouch(totalCards, requestedCards) {
   if (Number.isFinite(Number(requestedCards)) && Number(requestedCards) > 0) {
-    return clampNumber(Math.round(Number(requestedCards)), 1, totalCards);
+    return clamp(Math.round(Number(requestedCards)), 1, totalCards);
   }
 
   if (totalCards <= 4) {
@@ -556,7 +556,7 @@ function normalizeRequestedCards(value, totalCards, fallback) {
     return fallback;
   }
 
-  return clampNumber(parsed, 1, totalCards);
+  return clamp(parsed, 1, totalCards);
 }
 
 function normalizeChaosLevel(value) {
@@ -565,7 +565,7 @@ function normalizeChaosLevel(value) {
     return DEFAULT_CHAOS_LEVEL;
   }
 
-  return clampNumber(parsed, 0, 100);
+  return clamp(parsed, 0, 100);
 }
 
 function resolveProgressValidatedSteps(totalSteps, chaosLevel) {
@@ -576,7 +576,7 @@ function resolveProgressValidatedSteps(totalSteps, chaosLevel) {
   const chaosRatio = normalizeChaosLevel(chaosLevel) / 100;
   const maxSteps = Math.max(1, totalSteps - 1);
   const target = Math.round(maxSteps * (0.78 - chaosRatio * 0.58));
-  return clampNumber(target, 1, maxSteps);
+  return clamp(target, 1, maxSteps);
 }
 
 function resolveBuggyValidatedSteps(totalSteps, chaosLevel) {
@@ -587,7 +587,7 @@ function resolveBuggyValidatedSteps(totalSteps, chaosLevel) {
   const chaosRatio = normalizeChaosLevel(chaosLevel) / 100;
   const maxSteps = Math.max(0, totalSteps - 1);
   const target = Math.floor(maxSteps * (0.48 - chaosRatio * 0.42));
-  return clampNumber(target, 0, maxSteps);
+  return clamp(target, 0, maxSteps);
 }
 
 function resolveFakeScreenshotCount(outcome, chaosLevel) {
@@ -692,33 +692,11 @@ function writeShotParagraph(graphic, text, x, y, maxWidth, lineHeight) {
   }
 }
 
-function sanitizeShotName(value) {
-  return String(value || "carte")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32) || "carte";
-}
-
-function truncateForShot(value, maxLength) {
-  const text = String(value || "").trim();
-  if (text.length <= maxLength) {
-    return text;
-  }
-  return `${text.slice(0, Math.max(0, maxLength - 1)).trim()}…`;
-}
-
 function formatTime(date) {
   return new Date(date).toLocaleTimeString("fr-FR", {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function clampNumber(value, min, max) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function shuffle(items) {

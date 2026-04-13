@@ -35,10 +35,6 @@ export function formatPercent(done, total) {
   return `${Math.round((done / total) * 100)}%`;
 }
 
-export function formatRatioPercent(ratio = 0) {
-  return `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%`;
-}
-
 export function formatFileStamp(date = new Date()) {
   const value = new Date(date);
   const datePart = [
@@ -58,14 +54,6 @@ export function formatReportDate(date = new Date()) {
     dateStyle: "long",
     timeStyle: "short",
   });
-}
-
-export function capitalize(value = "") {
-  const text = String(value ?? "");
-  if (!text) {
-    return "";
-  }
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
 }
 
 export function truncateText(text = "", maxLength = 180) {

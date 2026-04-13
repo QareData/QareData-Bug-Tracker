@@ -6,7 +6,7 @@ import {
   SOURCE_STATUS_META,
   STATUS_META,
   SURFACE_ORDER,
-} from "../utils/constants.js?v=20260407-ui-fixes-2";
+} from "../utils/constants.js";
 import {
   cleanText,
   extractMentions,
@@ -15,7 +15,7 @@ import {
   slugify,
   sumBy,
   uniqueTexts,
-} from "../utils/format.js?v=20260407-ui-fixes-2";
+} from "../utils/format.js";
 
 export function normalizeBoardData(rawBoard = {}) {
   const input = rawBoard && typeof rawBoard === "object" ? rawBoard : {};
@@ -263,24 +263,6 @@ export function getSurfaceMetrics(surface) {
   };
 }
 
-export function getTopProblems(board, limit = 6) {
-  return flattenBoard(board)
-    .filter(({ card }) => card.status !== "done")
-    .sort((left, right) => {
-      const bySeverity =
-        getSeverityRank(left.card.severity) - getSeverityRank(right.card.severity);
-      if (bySeverity !== 0) {
-        return bySeverity;
-      }
-      const byRisk = Number(getCardRisk(right.card)) - Number(getCardRisk(left.card));
-      if (byRisk !== 0) {
-        return byRisk;
-      }
-      return left.card.title.localeCompare(right.card.title, "fr");
-    })
-    .slice(0, limit);
-}
-
 export function updateBoardMeta(board, patch) {
   const nextBoard = cloneBoard(board);
   nextBoard.meta = {
@@ -288,32 +270,6 @@ export function updateBoardMeta(board, patch) {
     ...patch,
   };
   return normalizeBoardData(nextBoard);
-}
-
-export function createManualCard(board, payload) {
-  const scenarioSteps = String(
-    payload.scenarioSteps || payload.firstChecklistItem || "",
-  )
-    .split(/\n+/)
-    .map((item) => cleanText(item))
-    .filter(Boolean);
-
-  return upsertCardDefinition(board, {
-    surfaceId: payload.surfaceId,
-    surfaceName: payload.surfaceName,
-    pageName: payload.pageName,
-    title: payload.title,
-    scenarioTitle: payload.title,
-    severity: payload.severity || "major",
-    notes: payload.notes || "",
-    checklistLabels: scenarioSteps,
-    expectedResult: "",
-    testMethod: "",
-    sourceIssues: "",
-    validatedPoints: "",
-    advice: "",
-    references: "",
-  });
 }
 
 export function deleteCard(board, cardId) {
@@ -562,36 +518,6 @@ export function removeScenarioStep(board, cardId, checklistId) {
       ...card,
       checklist: card.checklist.filter((item) => item.id !== checklistId),
     }));
-}
-
-export function toggleChecklistItem(board, cardId, checklistId, checked) {
-  return updateCard(board, cardId, (card) => {
-    const nextChecklist = card.checklist.map((item) =>
-      item.id === checklistId
-        ? {
-          ...item,
-          status: checked ? "ok" : "pending",
-          bug: checked ? createEmptyStepBug() : item.bug,
-          timestamp: checked ? new Date().toISOString() : "",
-        }
-        : item,
-    );
-
-    return syncCardStatus({
-      ...card,
-      checklist: nextChecklist,
-    });
-  });
-}
-
-export const addChecklistItem = addScenarioStep;
-export const removeChecklistItem = removeScenarioStep;
-
-export function toggleCardCollapsed(board, cardId) {
-  return updateCard(board, cardId, (card) => ({
-    ...card,
-    collapsed: !card.collapsed,
-  }));
 }
 
 export function collapseAllCards(board) {

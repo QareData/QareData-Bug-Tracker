@@ -1,5 +1,3 @@
-export const APP_VERSION = "20260401-qa-json";
-
 export const STORAGE_VERSION = 6;
 export const STORAGE_KEY = `qaredata-qa-board-state-v${STORAGE_VERSION}`;
 export const LEGACY_STORAGE_KEYS = [
@@ -99,10 +97,3 @@ export const PDF_LIBRARY_SOURCES = [
     src: "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",
   },
 ];
-
-export const PDF_PAGE_INDEX = {
-  toc: 2,
-  summary: 3,
-  surfaces: 4,
-  details: 5,
-};

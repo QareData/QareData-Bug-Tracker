@@ -1,10 +1,11 @@
-import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260409-crud-cards-3";
+import { buildContextDescription, buildContextExpected } from "../../core/card-context.js";
+import { escapeAttribute, escapeHtml } from "../../utils/format.js";
 import {
   getCardChecklistMetrics,
   getCardStatusMeta,
   getSeverityMeta,
   getSourceStatusMeta,
-} from "../../core/state.js?v=20260409-crud-cards-3";
+} from "../../core/state.js";
 
 export function renderCardDetailed(surface, page, card, boardMeta = {}) {
   const status = getCardStatusMeta(card.status);
@@ -371,37 +372,4 @@ function renderScreenshot(shot) {
       </button>
     </figure>
   `;
-}
-
-function buildContextDescription(card) {
-  if (card.legacyContext?.description) {
-    return card.legacyContext.description;
-  }
-
-  if (card.sourceIssues.length) {
-    return card.sourceIssues.join("\n");
-  }
-
-  if (card.validatedPoints.length) {
-    return card.validatedPoints.join("\n");
-  }
-
-  const scenarioLabel = card.scenarioTitle || card.title || "ce scénario";
-  return `Le flux "${scenarioLabel}" doit être rejoué dans des conditions proches de l'usage réel afin de documenter le comportement observé et les éventuels écarts restants.`;
-}
-
-function buildContextExpected(card) {
-  if (card.legacyContext?.expectedResult) {
-    return card.legacyContext.expectedResult;
-  }
-
-  if (card.advice.length) {
-    return card.advice.join(" ");
-  }
-
-  if (card.validatedPoints.length) {
-    return card.validatedPoints.join(" ");
-  }
-
-  return "Le scénario doit être cohérent, stable et exploitable sans blocage majeur.";
 }

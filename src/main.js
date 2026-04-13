@@ -1,5 +1,5 @@
-import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js?v=20260409-crud-cards-3";
-import { createStore } from "./core/store.js?v=20260409-crud-cards-3";
+import { buildExportPayload, clearSavedCards, loadCards, parseImportedBoard, saveCards } from "./core/dataLoader.js";
+import { createStore } from "./core/store.js";
 import {
   collapseAllCards,
   addScenarioStep,
@@ -14,17 +14,17 @@ import {
   setCardField,
   upsertCardDefinition,
   updateBoardMeta,
-} from "./core/state.js?v=20260409-crud-cards-3";
-import { generatePdfReport } from "./services/pdf.service.js?v=20260409-crud-cards-3";
-import { downloadMarkdownReport } from "./services/report.service.js?v=20260409-crud-cards-3";
+} from "./core/state.js";
+import { generatePdfReport } from "./services/pdf.service.js";
+import { downloadMarkdownReport } from "./services/report.service.js";
 import {
   askRandomQaSimulationSettings,
   runRandomQaSimulation,
-} from "./services/test-simulator.service.js?v=20260409-test-simulator-2";
-import { renderApp } from "./ui/render.js?v=20260409-crud-cards-3";
-import { renderCardDetailed } from "./ui/components/card-detailed.js?v=20260409-crud-cards-3";
-import { syncSidebarOptions } from "./ui/components/filters.js?v=20260409-crud-cards-3";
-import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js?v=20260409-crud-cards-3";
+} from "./services/test-simulator.service.js";
+import { renderApp } from "./ui/render.js";
+import { renderCardDetailed } from "./ui/components/card-detailed.js";
+import { syncSidebarOptions } from "./ui/components/filters.js";
+import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js";
 
 const elements = getElements();
 let activeModalCardId = null;
@@ -71,52 +71,6 @@ async function init() {
 }
 
 function bindEvents() {
-  if (elements.searchInput) {
-    elements.searchInput.addEventListener("input", (event) => {
-      updateFilters({
-        search: event.target.value.trim(),
-        page: "all",
-      });
-    });
-  }
-
-  elements.surfaceFilter?.addEventListener("change", (event) => {
-    updateFilters({
-      surface: event.target.value,
-      page: "all",
-    });
-  });
-
-  elements.pageFilter?.addEventListener("change", (event) => {
-    updateFilters({
-      page: event.target.value,
-    });
-  });
-
-  elements.statusFilter?.addEventListener("change", (event) => {
-    updateFilters({
-      status: event.target.value,
-    });
-  });
-
-  elements.severityFilter?.addEventListener("change", (event) => {
-    updateFilters({
-      severity: event.target.value,
-    });
-  });
-
-  elements.onlyNotValidatedInput?.addEventListener("change", (event) => {
-    updateFilters({
-      onlyNotValidated: event.target.checked,
-    });
-  });
-
-  elements.hideDoneInput?.addEventListener("change", (event) => {
-    updateFilters({
-      hideDone: event.target.checked,
-    });
-  });
-
   [elements.projectInput, elements.testerInput, elements.environmentInput].forEach((input) => {
     input.addEventListener("input", handleMetaInput);
     input.addEventListener("change", handleMetaChange);
@@ -1559,14 +1513,6 @@ function getElements() {
     environmentInput: document.querySelector("#environment-name"),
     headerProjectTitle: document.querySelector("#header-project-title"),
     headerProjectSubtitle: document.querySelector("#header-project-subtitle"),
-
-    searchInput: document.querySelector("#search-input"),
-    surfaceFilter: document.querySelector("#surface-filter"),
-    pageFilter: document.querySelector("#page-filter"),
-    statusFilter: document.querySelector("#status-filter"),
-    severityFilter: document.querySelector("#severity-filter"),
-    onlyNotValidatedInput: document.querySelector("#only-not-validated"),
-    hideDoneInput: document.querySelector("#hide-done"),
 
     openCardEditorButton: document.querySelector("#open-card-editor"),
     cardEditorPanel: document.querySelector("#card-editor-panel"),

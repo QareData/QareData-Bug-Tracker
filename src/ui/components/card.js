@@ -1,10 +1,10 @@
-import { escapeAttribute, escapeHtml } from "../../utils/format.js?v=20260407-ui-fixes-2";
+import { escapeAttribute, escapeHtml } from "../../utils/format.js";
 import {
   getCardChecklistMetrics,
   getCardRisk,
   getCardStatusMeta,
   getSeverityMeta,
-} from "../../core/state.js?v=20260407-ui-fixes-2";
+} from "../../core/state.js";
 
 export function renderCard(surface, page, card) {
   const status = getCardStatusMeta(card.status);
