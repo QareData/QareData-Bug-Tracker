@@ -31,9 +31,10 @@ import { createSidebarController } from "./app/sidebar-controller.js";
 import { createCardEditorController } from "./app/card-editor-controller.js";
 import { readFileAsDataUrl, optimizeImage } from "./app/image-utils.js";
 import { findCardContext } from "./app/card-context.js";
+import { createModalController } from "./app/modal-controller.js";
+import { createBoardInteractionsController } from "./app/board-interactions-controller.js";
 
 const elements = getElements();
-let activeModalCardId = null;
 const store = createStore({
   board: null,
   filters: {
@@ -52,6 +53,12 @@ const sidebarController = createSidebarController({
   updateFilters,
   render,
 });
+const modalController = createModalController({
+  elements,
+  store,
+  findCardContext,
+  renderCardDetailed,
+});
 const cardEditorController = createCardEditorController({
   elements,
   store,
@@ -59,11 +66,34 @@ const cardEditorController = createCardEditorController({
   findCardContext,
   updateBoard,
   updateSaveStatus,
-  closeCardModal,
-  syncBodyScrollLock,
+  closeCardModal: modalController.closeCardModal,
+  syncBodyScrollLock: modalController.syncBodyScrollLock,
   generateId,
   upsertCardDefinition,
   deleteCard,
+});
+const boardInteractionsController = createBoardInteractionsController({
+  elements,
+  store,
+  render,
+  findCardContext,
+  cardEditorController,
+  updateBoard,
+  updateSaveStatus,
+  openCardModal: modalController.openCardModal,
+  closeCardModal: modalController.closeCardModal,
+  addScenarioStep,
+  removeScenarioStep,
+  clearScenarioStepResult,
+  markScenarioStepOk,
+  saveScenarioStepBug,
+  removeScreenshot,
+  deleteCard,
+  setCardField,
+  addScreenshot,
+  generateId,
+  readFileAsDataUrl,
+  optimizeImage,
 });
 
 init().catch((error) => {
@@ -116,10 +146,10 @@ function bindEvents() {
   elements.themeButton?.addEventListener("click", themeController.handleThemeToggle);
   elements.sidebarRoot?.addEventListener("click", sidebarController.handleSidebarNavigationClick);
 
-  elements.modalClose?.addEventListener("click", closeCardModal);
+  elements.modalClose?.addEventListener("click", modalController.closeCardModal);
   elements.modalOverlay?.addEventListener("click", (event) => {
     if (event.target === elements.modalOverlay) {
-      closeCardModal();
+      modalController.closeCardModal();
     }
   });
   elements.cardEditorClose?.addEventListener("click", cardEditorController.closeCardEditorModal);
@@ -128,22 +158,22 @@ function bindEvents() {
       cardEditorController.closeCardEditorModal();
     }
   });
-  document.addEventListener("keydown", handleDocumentKeydown);
+  document.addEventListener("keydown", boardInteractionsController.handleDocumentKeydown);
 
-  elements.boardRoot.addEventListener("click", handleBoardClick);
-  elements.boardRoot.addEventListener("keydown", handleBoardKeydown);
-  elements.boardRoot.addEventListener("change", handleBoardChange);
-  elements.boardRoot.addEventListener("input", handleBoardInput);
-  elements.boardRoot.addEventListener("dragover", handleBoardDragOver);
-  elements.boardRoot.addEventListener("dragleave", handleBoardDragLeave);
-  elements.boardRoot.addEventListener("drop", handleBoardDrop);
+  elements.boardRoot.addEventListener("click", boardInteractionsController.handleBoardClick);
+  elements.boardRoot.addEventListener("keydown", boardInteractionsController.handleBoardKeydown);
+  elements.boardRoot.addEventListener("change", boardInteractionsController.handleBoardChange);
+  elements.boardRoot.addEventListener("input", boardInteractionsController.handleBoardInput);
+  elements.boardRoot.addEventListener("dragover", boardInteractionsController.handleBoardDragOver);
+  elements.boardRoot.addEventListener("dragleave", boardInteractionsController.handleBoardDragLeave);
+  elements.boardRoot.addEventListener("drop", boardInteractionsController.handleBoardDrop);
 
-  elements.modalContent?.addEventListener("click", handleBoardClick);
-  elements.modalContent?.addEventListener("change", handleBoardChange);
-  elements.modalContent?.addEventListener("input", handleBoardInput);
-  elements.modalContent?.addEventListener("dragover", handleBoardDragOver);
-  elements.modalContent?.addEventListener("dragleave", handleBoardDragLeave);
-  elements.modalContent?.addEventListener("drop", handleBoardDrop);
+  elements.modalContent?.addEventListener("click", boardInteractionsController.handleBoardClick);
+  elements.modalContent?.addEventListener("change", boardInteractionsController.handleBoardChange);
+  elements.modalContent?.addEventListener("input", boardInteractionsController.handleBoardInput);
+  elements.modalContent?.addEventListener("dragover", boardInteractionsController.handleBoardDragOver);
+  elements.modalContent?.addEventListener("dragleave", boardInteractionsController.handleBoardDragLeave);
+  elements.modalContent?.addEventListener("drop", boardInteractionsController.handleBoardDrop);
 }
 
 function render() {
@@ -208,7 +238,7 @@ async function handleImportJson(event) {
       board,
     }));
     saveCards(board);
-    closeCardModal();
+    modalController.closeCardModal();
     cardEditorController.closeCardEditorModal();
     render();
     cardEditorController.resetCardEditor();
@@ -255,7 +285,7 @@ async function handleReset() {
   const board = collapseAllCards(await loadCards());
   store.setState(createInitialAppState(board));
   saveCards(board);
-  closeCardModal();
+  modalController.closeCardModal();
   cardEditorController.closeCardEditorModal();
   render();
   cardEditorController.resetCardEditor();
@@ -303,358 +333,6 @@ function maybeRunTestMode() {
   }, 80);
 }
 
-function handleBoardClick(event) {
-  const card = event.target.closest(".qa-card");
-  if (!card) return;
-
-  const actionTarget = event.target.closest("[data-action]");
-  if (actionTarget) {
-    // C'est un bouton d'action
-    const cardId = getCardIdFromNode(actionTarget);
-    if (!cardId) return;
-
-    switch (actionTarget.dataset.action) {
-      case "open-card-modal": {
-        openCardModal(cardId);
-        break;
-      }
-
-      case "edit-card-definition": {
-        cardEditorController.openCardEditor(cardId);
-        break;
-      }
-
-      case "add-scenario-step": {
-        const cardEl = actionTarget.closest(".qa-card");
-        const input = cardEl?.querySelector(".new-scenario-step-input");
-        const label = input?.value || "";
-        if (!label.trim()) {
-          updateSaveStatus("Saisis une étape utilisateur avant de l'ajouter.");
-          input?.focus();
-          break;
-        }
-        updateBoard(
-          (board) => addScenarioStep(board, cardId, label),
-          "Étape ajoutée.",
-        );
-        if (input) {
-          input.value = "";
-        }
-        break;
-      }
-
-      case "remove-scenario-step": {
-        const scenarioRow = actionTarget.closest("[data-step-id]");
-        if (!scenarioRow) return;
-        updateBoard(
-          (board) => removeScenarioStep(board, cardId, scenarioRow.dataset.stepId),
-          "Étape supprimée.",
-        );
-        break;
-      }
-
-      case "mark-step-ok": {
-        const scenarioRow = actionTarget.closest("[data-step-id]");
-        if (!scenarioRow) return;
-        if (scenarioRow.dataset.stepStatus === "ok") {
-          updateBoard(
-            (board) =>
-              clearScenarioStepResult(
-                board,
-                cardId,
-                scenarioRow.dataset.stepId,
-              ),
-            "Étape remise à tester.",
-          );
-          break;
-        }
-        updateBoard(
-          (board) =>
-            markScenarioStepOk(
-              board,
-              cardId,
-              scenarioRow.dataset.stepId,
-              resolveTesterName(cardId),
-            ),
-          "Étape validée.",
-        );
-        break;
-      }
-
-      case "mark-step-ko": {
-        const scenarioRow = actionTarget.closest("[data-step-id]");
-        if (!scenarioRow) return;
-        if (scenarioRow.dataset.stepStatus === "ko") {
-          updateBoard(
-            (board) =>
-              clearScenarioStepResult(
-                board,
-                cardId,
-                scenarioRow.dataset.stepId,
-              ),
-            "Étape remise à tester.",
-          );
-          break;
-        }
-
-        if (scenarioRow.classList.contains("is-bug-open")) {
-          closeScenarioBugForm(scenarioRow);
-          break;
-        }
-
-        openScenarioBugForm(scenarioRow);
-        break;
-      }
-
-      case "cancel-step-ko": {
-        const scenarioRow = actionTarget.closest("[data-step-id]");
-        if (!scenarioRow) return;
-        closeScenarioBugForm(scenarioRow);
-        break;
-      }
-
-      case "save-step-bug": {
-        const scenarioRow = actionTarget.closest("[data-step-id]");
-        if (!scenarioRow) return;
-
-        const bugPayload = readScenarioBugPayload(scenarioRow);
-        if (!hasCompleteBugPayload(bugPayload)) {
-          scenarioRow.classList.add("is-bug-open", "is-bug-invalid");
-          scenarioRow.querySelectorAll(".qa-step__bug-input").forEach((input) => {
-            if (!input.value.trim()) {
-              input.setAttribute("aria-invalid", "true");
-            }
-          });
-          updateSaveStatus("Complète la description du bug et le comportement observé.");
-          return;
-        }
-
-        updateBoard(
-          (board) =>
-            saveScenarioStepBug(
-              board,
-              cardId,
-              scenarioRow.dataset.stepId,
-              bugPayload,
-              resolveTesterName(cardId),
-            ),
-          "Bug enregistré sur l'étape.",
-        );
-        break;
-      }
-
-      case "remove-screenshot": {
-        const shot = actionTarget.closest("[data-screenshot-id]");
-        if (!shot) return;
-        updateBoard(
-          (board) => removeScreenshot(board, cardId, shot.dataset.screenshotId),
-          "Screenshot supprimé.",
-        );
-        break;
-      }
-
-      case "delete-card": {
-        const confirmed = window.confirm(
-          "Supprimer cette carte du board local ? Exporte le JSON si tu veux conserver une sauvegarde publiable.",
-        );
-        if (!confirmed) return;
-        updateBoard((board) => deleteCard(board, cardId), "Carte supprimée.");
-        cardEditorController.clearEditingCardIfMatches(cardId);
-        closeCardModal();
-        break;
-      }
-    }
-    return;
-  }
-
-  if (card.closest("#board-root")) {
-    openCardModal(card.dataset.cardId);
-  }
-}
-
-function handleBoardChange(event) {
-  const cardId = getCardIdFromNode(event.target);
-  if (!cardId) {
-    return;
-  }
-
-  if (event.target.classList.contains("qa-step__bug-input")) {
-    return;
-  }
-
-  if (event.target.classList.contains("card-select")) {
-    updateBoard(
-      (board) =>
-        setCardField(
-          board,
-          cardId,
-          event.target.dataset.field,
-          event.target.value,
-        ),
-      "Carte mise à jour.",
-    );
-    return;
-  }
-
-  if (event.target.classList.contains("card-text-input")
-    || event.target.classList.contains("card-textarea")) {
-    render();
-    updateSaveStatus("Carte mise à jour.");
-    return;
-  }
-
-  if (event.target.classList.contains("screenshot-input")) {
-    void importScreenshots(cardId, event.target.files);
-    event.target.value = "";
-  }
-}
-
-function handleBoardInput(event) {
-  const cardId = getCardIdFromNode(event.target);
-  if (!cardId) {
-    return;
-  }
-
-  const scenarioRow = event.target.closest("[data-step-id]");
-  if (scenarioRow && event.target.classList.contains("qa-step__bug-input")) {
-    scenarioRow.classList.remove("is-bug-invalid");
-    if (event.target.value.trim()) {
-      event.target.removeAttribute("aria-invalid");
-    }
-    return;
-  }
-
-  if (
-    event.target.classList.contains("card-text-input")
-    || event.target.classList.contains("card-textarea")
-  ) {
-    updateBoard(
-      (board) =>
-        setCardField(
-          board,
-          cardId,
-          event.target.dataset.field,
-          event.target.value,
-        ),
-      "Carte enregistrée.",
-      false,
-      false,
-    );
-  }
-}
-
-function handleBoardKeydown(event) {
-  if (event.key !== "Enter" && event.key !== " ") {
-    return;
-  }
-
-  if (event.target.closest("button, input, select, textarea")) {
-    return;
-  }
-
-  const card = event.target.closest(".qa-card");
-  if (!card || !card.closest("#board-root")) {
-    return;
-  }
-
-  event.preventDefault();
-  openCardModal(card.dataset.cardId);
-}
-
-function handleDocumentKeydown(event) {
-  if (event.key !== "Escape") {
-    return;
-  }
-
-  if (elements.cardEditorOverlay?.classList.contains("active")) {
-    cardEditorController.closeCardEditorModal();
-    return;
-  }
-
-  if (elements.modalOverlay?.classList.contains("active")) {
-    closeCardModal();
-  }
-}
-
-function handleBoardDragOver(event) {
-  const dropzone = event.target.closest("[data-dropzone]");
-  if (!dropzone) {
-    return;
-  }
-
-  event.preventDefault();
-  dropzone.classList.add("is-dragover");
-}
-
-function handleBoardDragLeave(event) {
-  const dropzone = event.target.closest("[data-dropzone]");
-  if (!dropzone) {
-    return;
-  }
-
-  if (dropzone.contains(event.relatedTarget)) {
-    return;
-  }
-  dropzone.classList.remove("is-dragover");
-}
-
-function handleBoardDrop(event) {
-  const dropzone = event.target.closest("[data-dropzone]");
-  if (!dropzone) {
-    return;
-  }
-
-  event.preventDefault();
-  dropzone.classList.remove("is-dragover");
-
-  const cardId = getCardIdFromNode(dropzone);
-  if (!cardId) {
-    return;
-  }
-
-  void importScreenshots(cardId, event.dataTransfer?.files);
-}
-
-async function importScreenshots(cardId, files) {
-  const pickedFiles = Array.from(files || []).filter((file) =>
-    file.type.startsWith("image/"),
-  );
-
-  if (!pickedFiles.length) {
-    updateSaveStatus("Aucune image exploitable à importer.");
-    return;
-  }
-
-  try {
-    const screenshots = await Promise.all(
-      pickedFiles.map((file) => handleImageUpload(file)),
-    );
-
-    updateBoard(
-      (board) =>
-        screenshots.reduce(
-          (nextBoard, shot) => addScreenshot(nextBoard, cardId, shot),
-          board,
-        ),
-      "Screenshot(s) ajouté(s).",
-    );
-  } catch (error) {
-    console.error(error);
-    updateSaveStatus("Impossible d’importer les screenshots.");
-  }
-}
-
-async function handleImageUpload(file) {
-  const dataUrl = await readFileAsDataUrl(file);
-  const optimizedDataUrl = await optimizeImage(dataUrl, file.type);
-  return {
-    id: generateId("shot"),
-    name: file.name,
-    dataUrl: optimizedDataUrl,
-    createdAt: new Date().toISOString(),
-  };
-}
-
 function updateBoard(updater, message, shouldRender = true, syncActiveModal = true) {
   const nextState = store.setState((current) => {
     const nextBoard = updater(current.board);
@@ -669,11 +347,12 @@ function updateBoard(updater, message, shouldRender = true, syncActiveModal = tr
     render();
   }
 
+  const activeModalCardId = modalController.getActiveModalCardId();
   if (syncActiveModal && activeModalCardId) {
     if (findCardContext(store.getState().board, activeModalCardId)) {
-      renderModalCard(activeModalCardId);
+      modalController.renderModalCard(activeModalCardId);
     } else {
-      closeCardModal();
+      modalController.closeCardModal();
     }
   }
 
@@ -719,104 +398,6 @@ function buildHeaderSubtitle(meta) {
   }
 
   return "Vue d'ensemble des campagnes de recette, criticités et exports.";
-}
-
-function openCardModal(cardId) {
-  const context = findCardContext(store.getState().board, cardId);
-  if (!context || !elements.modalOverlay || !elements.modalContent) {
-    return;
-  }
-
-  activeModalCardId = cardId;
-  renderModalCard(cardId);
-  elements.modalOverlay.classList.add("active");
-  syncBodyScrollLock();
-}
-
-function renderModalCard(cardId) {
-  const context = findCardContext(store.getState().board, cardId);
-  if (!context || !elements.modalContent) {
-    return;
-  }
-
-  const previousScrollTop = elements.modalContent.scrollTop;
-  elements.modalContent.innerHTML = renderCardDetailed(
-    context.surface,
-    context.page,
-    context.card,
-    store.getState().board.meta,
-  );
-  elements.modalContent.scrollTop = previousScrollTop;
-}
-
-function closeCardModal() {
-  activeModalCardId = null;
-  if (elements.modalOverlay) {
-    elements.modalOverlay.classList.remove("active");
-  }
-  if (elements.modalContent) {
-    elements.modalContent.innerHTML = "";
-  }
-  syncBodyScrollLock();
-}
-
-function syncBodyScrollLock() {
-  const hasOpenOverlay = Boolean(
-    elements.modalOverlay?.classList.contains("active")
-    || elements.cardEditorOverlay?.classList.contains("active"),
-  );
-  document.body.style.overflow = hasOpenOverlay ? "hidden" : "";
-}
-
-function getCardIdFromNode(node) {
-  const card = node.closest(".qa-card");
-  return card?.dataset.cardId || null;
-}
-
-function resolveTesterName(cardId) {
-  const context = findCardContext(store.getState().board, cardId);
-  return context?.card.tester || store.getState().board.meta.tester || "";
-}
-
-function readScenarioBugPayload(stepRow) {
-  const defaultExpectedResult = stepRow.querySelector(".qa-step__bug-form")?.dataset.defaultExpectedResult
-    || "Le scénario doit être cohérent, stable et exploitable sans blocage majeur.";
-
-  return {
-    description:
-      stepRow.querySelector(".qa-step__bug-description")?.value || "",
-    observedBehavior:
-      stepRow.querySelector(".qa-step__bug-observed")?.value || "",
-    expectedResult: defaultExpectedResult,
-  };
-}
-
-function hasCompleteBugPayload(payload) {
-  return Boolean(
-    payload.description.trim()
-    && payload.observedBehavior.trim()
-    && payload.expectedResult.trim(),
-  );
-}
-
-function openScenarioBugForm(stepRow) {
-  stepRow.classList.remove("is-ok", "is-bug-invalid");
-  stepRow.classList.add("is-bug-open");
-  stepRow.querySelectorAll(".qa-step__bug-input").forEach((input) => {
-    input.removeAttribute("aria-invalid");
-  });
-  stepRow.querySelector(".qa-step__bug-description")?.focus();
-}
-
-function closeScenarioBugForm(stepRow) {
-  stepRow.classList.remove("is-bug-open", "is-bug-invalid");
-  stepRow.querySelectorAll(".qa-step__bug-input").forEach((input) => {
-    input.removeAttribute("aria-invalid");
-  });
-
-  if (stepRow.dataset.stepStatus === "ok") {
-    stepRow.classList.add("is-ok");
-  }
 }
 
 function updateSaveStatus(message) {
