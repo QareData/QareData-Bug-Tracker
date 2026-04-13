@@ -2,6 +2,7 @@ import { PDF_LIBRARY_SOURCES } from "../utils/constants.js";
 import {
   cleanText,
   formatFileStamp,
+  formatPercent,
   formatReportDate,
   truncateText,
 } from "../utils/format.js";
@@ -12,8 +13,57 @@ const PAGE_MARGIN_X = 46;
 const PAGE_MARGIN_TOP = 54;
 const PAGE_MARGIN_BOTTOM = 44;
 const SECTION_GAP = 16;
-const TOC_ROWS_PER_PAGE = 22;
+const TOC_ROWS_PER_PAGE = 12;
 const IMAGE_CACHE = new Map();
+const FONT_BINARY_CACHE = new Map();
+
+const PDF_THEME = {
+  page: [243, 247, 252],
+  surface: [255, 255, 255],
+  surfaceMuted: [248, 250, 252],
+  border: [223, 231, 243],
+  borderSoft: [233, 239, 247],
+  text: [15, 23, 42],
+  textMuted: [88, 102, 122],
+  textSoft: [100, 116, 139],
+  primary: [37, 99, 235],
+  primarySoft: [226, 232, 255],
+  success: [22, 163, 74],
+  successSoft: [236, 253, 245],
+  warning: [217, 119, 6],
+  warningSoft: [255, 247, 237],
+  danger: [220, 38, 38],
+  dangerSoft: [254, 242, 242],
+  neutral: [71, 85, 105],
+  neutralSoft: [241, 245, 249],
+};
+
+const PDF_FONT_SOURCES = [
+  {
+    family: "Quantify",
+    style: "normal",
+    fileName: "Quantify.ttf",
+    url: new URL("../../assets/fonts/quantify/Quantify.ttf", import.meta.url).href,
+  },
+  {
+    family: "Poppins",
+    style: "normal",
+    fileName: "Poppins-Regular.ttf",
+    url: new URL("../../assets/fonts/poppins/Poppins-Regular.ttf", import.meta.url).href,
+  },
+  {
+    family: "Poppins",
+    style: "bold",
+    fileName: "Poppins-Bold.ttf",
+    url: new URL("../../assets/fonts/poppins/Poppins-Bold.ttf", import.meta.url).href,
+  },
+  {
+    family: "PoppinsBlack",
+    style: "normal",
+    fileName: "Poppins-Black.ttf",
+    url: new URL("../../assets/fonts/poppins/Poppins-Black.ttf", import.meta.url).href,
+  },
+];
 
 export async function generatePdfReport(board) {
   const generatedAt = new Date();
@@ -45,6 +95,7 @@ async function generateWithJsPdf(report, generatedAt) {
     format: "a4",
     orientation: "portrait",
   });
+  await ensurePdfFontsRegistered(pdf);
   const layout = getLayout(pdf);
   const logoAsset = await loadImageAsset(report.brand.logoPath).catch(() => null);
   const tocPageNumbers = reserveTocPages(pdf, report.tocCards);
@@ -184,6 +235,64 @@ function getLayout(pdf) {
   };
 }
 
+async function ensurePdfFontsRegistered(pdf) {
+  if (pdf.__qaredataFontsRegistered) {
+    return true;
+  }
+
+  if (typeof pdf.addFileToVFS !== "function" || typeof pdf.addFont !== "function") {
+    pdf.__qaredataFontsRegistered = false;
+    return false;
+  }
+
+  try {
+    for (const font of PDF_FONT_SOURCES) {
+      const binary = await loadFontBinary(font.url);
+      if (typeof pdf.existsFileInVFS !== "function" || !pdf.existsFileInVFS(font.fileName)) {
+        pdf.addFileToVFS(font.fileName, binary);
+      }
+      pdf.addFont(font.fileName, font.family, font.style);
+    }
+    pdf.__qaredataFontsRegistered = true;
+    return true;
+  } catch (error) {
+    console.warn("Chargement des polices PDF impossible, fallback Helvetica.", error);
+    pdf.__qaredataFontsRegistered = false;
+    return false;
+  }
+}
+
+async function loadFontBinary(url) {
+  if (FONT_BINARY_CACHE.has(url)) {
+    return FONT_BINARY_CACHE.get(url);
+  }
+
+  const promise = fetch(url)
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Impossible de charger la police ${url}`);
+      }
+      return response.arrayBuffer();
+    })
+    .then(arrayBufferToBinaryString);
+
+  FONT_BINARY_CACHE.set(url, promise);
+  return promise;
+}
+
+function arrayBufferToBinaryString(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let result = "";
+
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    const chunk = bytes.subarray(index, index + chunkSize);
+    result += String.fromCharCode(...chunk);
+  }
+
+  return result;
+}
+
 function reserveTocPages(pdf, tocCards) {
   const pagesNeeded = Math.max(1, Math.ceil(Math.max(tocCards.length, 1) / TOC_ROWS_PER_PAGE));
   const pages = [];
@@ -198,184 +307,302 @@ function reserveTocPages(pdf, tocCards) {
 
 function drawCoverPage(pdf, layout, report, logoAsset) {
   pdf.setPage(1);
-  pdf.setFillColor(246, 249, 255);
+  pdf.setFillColor(...PDF_THEME.page);
   pdf.rect(0, 0, layout.width, layout.height, "F");
 
-  pdf.setFillColor(222, 235, 255);
-  pdf.circle(92, 90, 74, "F");
-  pdf.setFillColor(225, 246, 240);
-  pdf.circle(layout.width - 84, 126, 58, "F");
+  pdf.setFillColor(...PDF_THEME.primarySoft);
+  pdf.circle(layout.width - 78, 108, 72, "F");
+  pdf.setFillColor(231, 244, 238);
+  pdf.circle(68, layout.height - 94, 58, "F");
 
-  const centerX = layout.width / 2;
-  let y = 74;
+  const heroX = layout.left;
+  const heroY = 42;
+  const heroHeight = 178;
+  const heroPadding = 24;
+  const logoBoxSize = 88;
+  const logoX = layout.right - heroPadding - logoBoxSize;
+  const heroTitleWidth = layout.contentWidth - logoBoxSize - 96;
+  const reportTitleLines = pdf.splitTextToSize(report.brand.reportName, heroTitleWidth);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(24);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text(report.brand.companyName, centerX, y, { align: "center" });
-  y += 30;
+  drawPanel(pdf, heroX, heroY, layout.contentWidth, heroHeight, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 24,
+  });
+  drawAccentBar(pdf, heroX + 18, heroY + 20, 118, 28, PDF_THEME.primarySoft, PDF_THEME.primary);
 
-  if (logoAsset) {
-    const logoSize = fitIntoBox(logoAsset.width, logoAsset.height, 112, 76);
-    const logoX = centerX - logoSize.width / 2;
-    pdf.addImage(
-      logoAsset.dataUrl,
-      logoAsset.format,
-      logoX,
-      y,
-      logoSize.width,
-      logoSize.height,
-      undefined,
-      "FAST",
-    );
-    y += logoSize.height + 26;
-  } else {
-    pdf.setFillColor(15, 23, 42);
-    pdf.roundedRect(centerX - 42, y, 84, 58, 14, 14, "F");
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(24);
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(report.brand.logoFallback || "QA", centerX, y + 37, { align: "center" });
-    y += 84;
-  }
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...PDF_THEME.primary);
+  pdf.text("QA DASHBOARD", heroX + 34, heroY + 38);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(28);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text(report.brand.reportName, centerX, y, { align: "center" });
-  y += 20;
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(14);
+  pdf.setTextColor(...PDF_THEME.textMuted);
+  pdf.text(report.brand.companyName, heroX + heroPadding, heroY + 72);
 
-  pdf.setFont("helvetica", "normal");
+  setPdfDisplayFont(pdf);
+  pdf.setFontSize(30);
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text(reportTitleLines, heroX + heroPadding, heroY + 108);
+
+  const titleOffset = reportTitleLines.length * 28;
+  setPdfBodyFont(pdf, "normal");
   pdf.setFontSize(13);
-  pdf.setTextColor(88, 102, 122);
-  pdf.text(report.brand.projectName, centerX, y, { align: "center" });
-  y += 34;
+  pdf.setTextColor(...PDF_THEME.textMuted);
+  pdf.text(report.brand.projectName, heroX + heroPadding, heroY + 112 + titleOffset);
 
-  const metaWidth = 160;
-  const metaGap = 14;
-  const metaStartX = centerX - ((metaWidth * 3) + (metaGap * 2)) / 2;
-  renderCoverMeta(pdf, metaStartX, y, metaWidth, "Testeur", report.meta.tester || "Non renseigné");
-  renderCoverMeta(
+  drawLogoPanel(pdf, logoX, heroY + 22, logoBoxSize, report, logoAsset);
+
+  const metaY = heroY + heroHeight - 58;
+  const metaGap = 10;
+  const metaWidth = (layout.contentWidth - heroPadding * 2 - metaGap * 2) / 3;
+  drawDashboardMetaCard(
     pdf,
-    metaStartX + metaWidth + metaGap,
-    y,
+    heroX + heroPadding,
+    metaY,
+    metaWidth,
+    "Testeur",
+    report.meta.tester || "Non renseigné",
+  );
+  drawDashboardMetaCard(
+    pdf,
+    heroX + heroPadding + metaWidth + metaGap,
+    metaY,
     metaWidth,
     "Environnement",
     report.meta.environment || "Non renseigné",
   );
-  renderCoverMeta(
+  drawDashboardMetaCard(
     pdf,
-    metaStartX + (metaWidth + metaGap) * 2,
-    y,
+    heroX + heroPadding + (metaWidth + metaGap) * 2,
+    metaY,
     metaWidth,
-    "Date de génération",
+    "Généré le",
     formatReportDate(report.generatedAt),
   );
 
-  y += 122;
+  const coveragePercent = report.reportStats.totalCards
+    ? Math.round((report.reportStats.testedCount / report.reportStats.totalCards) * 100)
+    : 0;
+  const coverageLabel = formatPercent(report.reportStats.testedCount, report.reportStats.totalCards);
+  const scoreY = heroY + heroHeight + 16;
+  const scoreWidth = 214;
+  const metricGap = 12;
+  const metricsX = heroX + scoreWidth + metricGap;
+  const metricsWidth = layout.contentWidth - scoreWidth - metricGap;
+  const metricCardWidth = (metricsWidth - metricGap) / 2;
+  const metricCardHeight = 76;
 
-  pdf.setDrawColor(223, 231, 243);
-  pdf.setFillColor(255, 255, 255);
-  pdf.roundedRect(layout.left, y, layout.contentWidth, 122, 18, 18, "FD");
+  drawDashboardScoreCard(pdf, heroX, scoreY, scoreWidth, 164, report, coveragePercent, coverageLabel);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.setTextColor(86, 102, 122);
-  pdf.text("Résumé global", layout.left + 22, y + 24);
+  drawDashboardMetricCard(
+    pdf,
+    metricsX,
+    scoreY,
+    metricCardWidth,
+    metricCardHeight,
+    "Total cartes",
+    String(report.reportStats.totalCards),
+    {
+      accent: PDF_THEME.primary,
+      soft: PDF_THEME.primarySoft,
+    },
+  );
+  drawDashboardMetricCard(
+    pdf,
+    metricsX + metricCardWidth + metricGap,
+    scoreY,
+    metricCardWidth,
+    metricCardHeight,
+    "Validées",
+    String(report.reportStats.validatedCount),
+    {
+      accent: PDF_THEME.success,
+      soft: PDF_THEME.successSoft,
+    },
+  );
+  drawDashboardMetricCard(
+    pdf,
+    metricsX,
+    scoreY + metricCardHeight + metricGap,
+    metricCardWidth,
+    metricCardHeight,
+    "Échouées",
+    String(report.reportStats.failedCount),
+    {
+      accent: PDF_THEME.danger,
+      soft: PDF_THEME.dangerSoft,
+    },
+  );
+  drawDashboardMetricCard(
+    pdf,
+    metricsX + metricCardWidth + metricGap,
+    scoreY + metricCardHeight + metricGap,
+    metricCardWidth,
+    metricCardHeight,
+    "En cours",
+    String(report.reportStats.partialCount),
+    {
+      accent: PDF_THEME.warning,
+      soft: PDF_THEME.warningSoft,
+    },
+  );
 
-  const kpiY = y + 40;
-  const kpiGap = 10;
-  const kpiWidth = (layout.contentWidth - kpiGap * 4) / 5;
-  const kpis = [
-    ["Cartes totales", String(report.reportStats.totalCards), [71, 85, 105]],
-    ["Cartes détaillées", String(report.detailScope.detailedCount), [37, 99, 235]],
-    ["Validées", String(report.reportStats.validatedCount), [5, 150, 105]],
-    ["Échouées", String(report.reportStats.failedCount), [220, 38, 38]],
-    ["Score QA", `${report.reportStats.scorePercent}%`, [37, 99, 235]],
+  const lowerY = scoreY + 180;
+  const leftColumnWidth = 306;
+  const rightColumnWidth = layout.contentWidth - leftColumnWidth - 14;
+  const summaryItems = toSentenceList(report.summaryText, 5);
+  const scopeItems = [
+    report.detailScope.summary,
+    report.detailScope.inclusionNote,
   ];
+  const vigilanceItems = report.topProblems.length
+    ? report.topProblems.slice(0, 3).map((card) => `${card.title} · ${card.reportStatus.label}`)
+    : [
+      `${report.metrics.blockersCount} point(s) bloquant(s) ouverts dans le périmètre.`,
+      `${report.metrics.notesCount} carte(s) avec notes terrain et ${report.metrics.screenshotsCount} capture(s) déjà jointes.`,
+    ];
 
-  kpis.forEach(([label, value, tone], index) => {
-    const x = layout.left + index * (kpiWidth + kpiGap);
-    drawCoverKpi(pdf, x, kpiY, kpiWidth, label, value, tone);
+  drawDashboardSummaryCard(
+    pdf,
+    heroX,
+    lowerY,
+    leftColumnWidth,
+    248,
+    "Résumé global",
+    summaryItems,
+    {
+      accent: PDF_THEME.primary,
+    },
+  );
+  drawDashboardSummaryCard(
+    pdf,
+    heroX + leftColumnWidth + 14,
+    lowerY,
+    rightColumnWidth,
+    118,
+    "Périmètre du détail",
+    scopeItems,
+    {
+      accent: PDF_THEME.primary,
+      compact: true,
+    },
+  );
+  drawDashboardSummaryCard(
+    pdf,
+    heroX + leftColumnWidth + 14,
+    lowerY + 130,
+    rightColumnWidth,
+    118,
+    report.topProblems.length ? "Points de vigilance" : "Activité QA",
+    vigilanceItems,
+    {
+      accent: report.topProblems.length ? PDF_THEME.danger : PDF_THEME.warning,
+      compact: true,
+    },
+  );
+}
+
+function drawDashboardMetaCard(pdf, x, y, width, label, value) {
+  drawPanel(pdf, x, y, width, 38, {
+    fill: PDF_THEME.surfaceMuted,
+    stroke: PDF_THEME.borderSoft,
+    radius: 14,
+  });
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...PDF_THEME.textSoft);
+  pdf.text(label.toUpperCase(), x + 12, y + 14);
+
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(...PDF_THEME.text);
+  const lines = pdf.splitTextToSize(cleanText(value), width - 24).slice(0, 2);
+  pdf.text(lines, x + 12, y + 28);
+}
+
+function drawDashboardScoreCard(pdf, x, y, width, height, report, coveragePercent, coverageLabel) {
+  drawPanel(pdf, x, y, width, height, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 24,
+  });
+  drawAccentBar(pdf, x + 18, y + 18, 106, 26, PDF_THEME.primarySoft, PDF_THEME.primary);
+
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...PDF_THEME.primary);
+  pdf.text("SCORE QA", x + 34, y + 35);
+
+  setPdfBodyFont(pdf, "black");
+  pdf.setFontSize(42);
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text(`${report.reportStats.scorePercent}%`, x + 18, y + 86);
+
+  setPdfBodyFont(pdf, "normal");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(...PDF_THEME.textMuted);
+  pdf.text(
+    `Couverture ${coverageLabel} • ${report.reportStats.testedCount}/${report.reportStats.totalCards} cartes testées`,
+    x + 18,
+    y + 106,
+  );
+
+  drawProgressBar(pdf, x + 18, y + 118, width - 36, 10, report.reportStats.scorePercent, {
+    fill: PDF_THEME.primary,
+    soft: PDF_THEME.primarySoft,
   });
 
-  y += 150;
-
-  const summaryLines = pdf.splitTextToSize(report.summaryText, layout.contentWidth - 44);
-  const detailScopeSummaryLines = pdf.splitTextToSize(
-    report.detailScope.summary,
-    layout.contentWidth - 44,
+  drawMiniStat(pdf, x + 18, y + 142, (width - 42) / 2, "Notes", String(report.metrics.notesCount));
+  drawMiniStat(
+    pdf,
+    x + 24 + (width - 42) / 2,
+    y + 142,
+    (width - 42) / 2,
+    "Captures",
+    String(report.metrics.screenshotsCount),
   );
-  const detailScopeRuleLines = pdf.splitTextToSize(
-    report.detailScope.inclusionNote,
-    layout.contentWidth - 44,
-  );
-  const summaryBoxHeight = 84
-    + summaryLines.length * 14
-    + detailScopeSummaryLines.length * 13
-    + detailScopeRuleLines.length * 13
-    + 18;
-
-  pdf.setDrawColor(223, 231, 243);
-  pdf.setFillColor(255, 255, 255);
-  pdf.roundedRect(layout.left, y, layout.contentWidth, summaryBoxHeight, 18, 18, "FD");
-
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.setTextColor(86, 102, 122);
-  pdf.text("Synthèse QA", layout.left + 22, y + 24);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.setTextColor(51, 65, 85);
-  pdf.text(summaryLines, layout.left + 22, y + 48);
-
-  let scopeY = y + 48 + summaryLines.length * 14 + 10;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(37, 99, 235);
-  pdf.text("PÉRIMÈTRE DU DÉTAIL", layout.left + 22, scopeY);
-  scopeY += 16;
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10.5);
-  pdf.setTextColor(71, 85, 105);
-  pdf.text(detailScopeSummaryLines, layout.left + 22, scopeY);
-  scopeY += detailScopeSummaryLines.length * 13 + 4;
-  pdf.text(detailScopeRuleLines, layout.left + 22, scopeY);
 }
 
-function renderCoverMeta(pdf, x, y, width, label, value) {
-  pdf.setDrawColor(225, 231, 241);
-  pdf.setFillColor(255, 255, 255);
-  pdf.roundedRect(x, y, width, 82, 16, 16, "FD");
+function drawDashboardMetricCard(pdf, x, y, width, height, label, value, tone) {
+  drawPanel(pdf, x, y, width, height, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 20,
+  });
+  drawAccentBar(pdf, x + 16, y + 16, 82, 24, tone.soft, tone.accent);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(100, 116, 139);
-  pdf.text(label.toUpperCase(), x + 14, y + 22);
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...tone.accent);
+  pdf.text(label.toUpperCase(), x + 28, y + 32);
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.setTextColor(15, 23, 42);
-  const lines = pdf.splitTextToSize(cleanText(value), width - 28).slice(0, 3);
-  pdf.text(lines, x + 14, y + 44);
+  setPdfBodyFont(pdf, "black");
+  pdf.setFontSize(24);
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text(String(value), x + 18, y + height - 18);
 }
 
-function drawCoverKpi(pdf, x, y, width, label, value, rgb) {
-  pdf.setFillColor(248, 250, 252);
-  pdf.setDrawColor(229, 234, 241);
-  pdf.roundedRect(x, y, width, 62, 16, 16, "FD");
+function drawDashboardSummaryCard(pdf, x, y, width, height, title, items, options = {}) {
+  const accent = options.accent || PDF_THEME.primary;
+  drawPanel(pdf, x, y, width, height, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 22,
+  });
+  drawAccentBar(pdf, x + 18, y + 16, options.compact ? 128 : 112, 24, PDF_THEME.surfaceMuted, accent);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(...rgb);
-  pdf.text(label.toUpperCase(), x + 12, y + 20);
+  setPdfDisplayFont(pdf);
+  pdf.setFontSize(9);
+  pdf.setTextColor(...accent);
+  pdf.text(title.toUpperCase(), x + 30, y + 32);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(22);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text(String(value), x + 12, y + 48);
+  drawBulletListInPanel(pdf, x + 18, y + 52, width - 36, height - 64, items, {
+    bulletColor: accent,
+    fontSize: options.compact ? 9.5 : 10.5,
+    lineHeight: options.compact ? 12 : 14,
+  });
 }
 
 async function drawDetailPages(pdf, layout, report) {
@@ -403,6 +630,7 @@ async function drawDetailPages(pdf, layout, report) {
 }
 
 function createFlowState(pdf, layout) {
+  paintFlowPageBackground(pdf, layout);
   return {
     pdf,
     layout,
@@ -413,6 +641,7 @@ function createFlowState(pdf, layout) {
 
 function addFlowPage(state) {
   state.pdf.addPage();
+  paintFlowPageBackground(state.pdf, state.layout);
   state.pageNumber = state.pdf.internal.getNumberOfPages();
   state.y = state.layout.top;
 }
@@ -433,32 +662,57 @@ function ensureSpace(state, requiredHeight, options = {}) {
 
 function drawDetailIntro(state, report) {
   const { pdf, layout } = state;
+  const intro = `${report.detailScope.detailIntro} Chaque fiche rassemble le scénario utilisateur, les étapes réellement testées, les constats observés, les éventuels bugs, les notes et les captures présentes. ${report.detailScope.inclusionNote}`;
+  const introLines = pdf.splitTextToSize(intro, layout.contentWidth - 36);
+  const bannerHeight = 74 + introLines.length * 14;
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(11);
-  pdf.setTextColor(37, 99, 235);
-  pdf.text("DÉTAIL DES CARTES TESTÉES", layout.left, state.y);
-  state.y += 18;
+  drawPanel(pdf, layout.left, state.y, layout.contentWidth, bannerHeight, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 24,
+  });
+  drawAccentBar(pdf, layout.left + 18, state.y + 18, 154, 26, PDF_THEME.primarySoft, PDF_THEME.primary);
 
-  pdf.setFont("helvetica", "bold");
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...PDF_THEME.primary);
+  pdf.text("DÉTAIL DES CARTES TESTÉES", layout.left + 32, state.y + 35);
+
+  setPdfDisplayFont(pdf);
   pdf.setFontSize(24);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text("Rapport détaillé des vérifications QA", layout.left, state.y);
-  state.y += 22;
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text("Rapport détaillé des vérifications QA", layout.left + 18, state.y + 66);
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.setTextColor(88, 102, 122);
-  const introLines = pdf.splitTextToSize(
-    `${report.detailScope.detailIntro} Chaque fiche rassemble le scénario utilisateur, les étapes réellement testées, les constats observés, les éventuels bugs, les notes et les captures présentes. ${report.detailScope.inclusionNote}`,
-    layout.contentWidth,
-  );
-  pdf.text(introLines, layout.left, state.y);
-  state.y += introLines.length * 15 + 12;
+  setPdfBodyFont(pdf, "normal");
+  pdf.setFontSize(11);
+  pdf.setTextColor(...PDF_THEME.textMuted);
+  pdf.text(introLines, layout.left + 18, state.y + 90);
 
-  pdf.setDrawColor(226, 232, 240);
-  pdf.line(layout.left, state.y, layout.right, state.y);
-  state.y += 18;
+  state.y += bannerHeight + 14;
+
+  const cardGap = 10;
+  const statWidth = (layout.contentWidth - cardGap * 3) / 4;
+  const stats = [
+    ["Détaillées", String(report.detailScope.detailedCount), { accent: PDF_THEME.primary, soft: PDF_THEME.primarySoft }],
+    ["En échec", String(report.reportStats.failedCount), { accent: PDF_THEME.danger, soft: PDF_THEME.dangerSoft }],
+    ["En cours", String(report.reportStats.partialCount), { accent: PDF_THEME.warning, soft: PDF_THEME.warningSoft }],
+    ["Captures", String(report.metrics.screenshotsCount), { accent: PDF_THEME.neutral, soft: PDF_THEME.neutralSoft }],
+  ];
+
+  stats.forEach(([label, value, tone], index) => {
+    drawDashboardMetricCard(
+      pdf,
+      layout.left + index * (statWidth + cardGap),
+      state.y,
+      statWidth,
+      72,
+      label,
+      value,
+      tone,
+    );
+  });
+
+  state.y += 84;
 }
 
 async function drawCardSection(state, card) {
@@ -490,72 +744,104 @@ async function drawCardSection(state, card) {
 
 function drawCardHeader(state, card) {
   const { pdf, layout } = state;
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
   const statusBadgeLabel = card.reportStatus.badgeLabel || card.reportStatus.label;
-  const pillWidth = Math.max(96, pdf.getTextWidth(statusBadgeLabel.toUpperCase()) + 24);
-  const titleMaxWidth = layout.contentWidth - pillWidth - 34;
+  const pillWidth = Math.max(112, pdf.getTextWidth(statusBadgeLabel.toUpperCase()) + 26);
+  const severityLabel = card.severity.badgeLabel || card.severity.label;
+  const severityWidth = Math.max(94, pdf.getTextWidth(severityLabel.toUpperCase()) + 24);
+  const badgeColumnWidth = Math.max(pillWidth, severityWidth);
+  const titleMaxWidth = layout.contentWidth - badgeColumnWidth - 52;
   const titleLines = pdf.splitTextToSize(card.title, titleMaxWidth);
-  const headerHeight = 54 + titleLines.length * 18;
+  const scenarioLines = pdf.splitTextToSize(card.scenarioTitle, titleMaxWidth);
+  const headerHeight = Math.max(
+    164,
+    100 + titleLines.length * 18 + scenarioLines.length * 12,
+  );
 
-  ensureSpace(state, headerHeight + 12);
+  ensureSpace(state, headerHeight + SECTION_GAP);
 
   const tone = getStatusTone(card.reportStatus.key);
-  pdf.setFillColor(...tone.soft);
-  pdf.setDrawColor(...tone.stroke);
-  pdf.roundedRect(layout.left, state.y, layout.contentWidth, headerHeight, 18, 18, "FD");
+  drawPanel(pdf, layout.left, state.y, layout.contentWidth, headerHeight, {
+    fill: tone.soft,
+    stroke: tone.stroke,
+    radius: 22,
+  });
+  drawAccentBar(pdf, layout.left + 18, state.y + 16, 126, 24, tone.fill, tone.text);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(10);
-  pdf.setTextColor(88, 102, 122);
-  pdf.text(`${cleanText(card.surfaceName)} · ${cleanText(card.pageName)}`.toUpperCase(), layout.left + 18, state.y + 20);
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...tone.text);
+  pdf.text(`${cleanText(card.surfaceName)} · ${cleanText(card.pageName)}`.toUpperCase(), layout.left + 32, state.y + 31);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(18);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text(titleLines, layout.left + 18, state.y + 42);
+  setPdfDisplayFont(pdf);
+  pdf.setFontSize(19);
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text(titleLines, layout.left + 18, state.y + 60);
+
+  setPdfBodyFont(pdf, "normal");
+  pdf.setFontSize(11);
+  pdf.setTextColor(...PDF_THEME.textMuted);
+  pdf.text(scenarioLines, layout.left + 18, state.y + 68 + titleLines.length * 18);
 
   drawStatusPill(
     pdf,
-    layout.right - pillWidth,
+    layout.right - badgeColumnWidth - 14,
     state.y + 16,
-    pillWidth - 8,
-    24,
+    badgeColumnWidth,
+    26,
     statusBadgeLabel,
     tone,
   );
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.setTextColor(71, 85, 105);
-  const metaLine = [
-    `Statut QA : ${card.status.label}`,
-    `Criticité : ${card.severity.badgeLabel || card.severity.label}`,
-    `Testeur : ${card.tester || "Non renseigné"}`,
-    `Environnement : ${card.environment || "Non renseigné"}`,
-  ].join("   ·   ");
-  const metaLines = pdf.splitTextToSize(metaLine, layout.contentWidth - 36);
-  pdf.text(metaLines, layout.left + 18, state.y + headerHeight - 16);
+  drawOutlinePill(
+    pdf,
+    layout.right - badgeColumnWidth - 14,
+    state.y + 50,
+    badgeColumnWidth,
+    22,
+    severityLabel,
+    getSeverityTone(card.severity.tone),
+  );
 
-  state.y += headerHeight + 12;
+  const metaWidth = (layout.contentWidth - 18 * 2 - 8) / 2;
+  const metaY = state.y + headerHeight - 62;
+  drawInfoChip(pdf, layout.left + 18, metaY, metaWidth, "Statut QA", card.status.label);
+  drawInfoChip(
+    pdf,
+    layout.left + 26 + metaWidth,
+    metaY,
+    metaWidth,
+    "Progression",
+    `${card.checklist.checked}/${card.checklist.total} · ${card.checklist.progressPercent}%`,
+  );
+  drawInfoChip(pdf, layout.left + 18, metaY + 28, metaWidth, "Testeur", card.tester || "Non renseigné");
+  drawInfoChip(
+    pdf,
+    layout.left + 26 + metaWidth,
+    metaY + 28,
+    metaWidth,
+    "Environnement",
+    card.environment || "Non renseigné",
+  );
+
+  state.y += headerHeight + SECTION_GAP;
 }
 
 function drawStatusPill(pdf, x, y, width, height, label, tone) {
   pdf.setFillColor(...tone.fill);
   pdf.setDrawColor(...tone.stroke);
-  pdf.roundedRect(x, y, width, height, 12, 12, "FD");
+  pdf.roundedRect(x, y, width, height, 13, 13, "FD");
 
-  pdf.setFont("helvetica", "bold");
+  setPdfBodyFont(pdf, "bold");
   pdf.setFontSize(10);
   pdf.setTextColor(...tone.text);
-  pdf.text(label.toUpperCase(), x + width / 2, y + 16, { align: "center" });
+  pdf.text(label.toUpperCase(), x + width / 2, y + 17, { align: "center" });
 }
 
 function drawSectionLabel(state, label) {
   ensureSpace(state, 22);
-  state.pdf.setFont("helvetica", "bold");
-  state.pdf.setFontSize(11);
-  state.pdf.setTextColor(37, 99, 235);
+  setPdfBodyFont(state.pdf, "bold");
+  state.pdf.setFontSize(9.5);
+  state.pdf.setTextColor(...PDF_THEME.primary);
   state.pdf.text(label.toUpperCase(), state.layout.left, state.y);
   state.y += 16;
 }
@@ -565,20 +851,39 @@ function drawParagraphSection(state, title, text) {
     return;
   }
 
-  drawSectionLabel(state, title);
-  const lines = state.pdf.splitTextToSize(cleanText(text), state.layout.contentWidth);
+  const bodyWidth = state.layout.contentWidth - 34;
+  const lines = state.pdf.splitTextToSize(cleanText(text), bodyWidth);
+  const panelHeight = 48 + lines.length * 14;
+  const accent = title === "Notes"
+    ? PDF_THEME.warning
+    : title === "Résultat attendu"
+      ? PDF_THEME.success
+      : PDF_THEME.primary;
+  const softFill = title === "Notes"
+    ? PDF_THEME.warningSoft
+    : title === "Résultat attendu"
+      ? PDF_THEME.successSoft
+      : PDF_THEME.surface;
 
-  state.pdf.setFont("helvetica", "normal");
-  state.pdf.setFontSize(11);
-  state.pdf.setTextColor(51, 65, 85);
+  ensureSpace(state, panelHeight + 6, { continuedTitle: title });
+  drawPanel(state.pdf, state.layout.left, state.y, state.layout.contentWidth, panelHeight, {
+    fill: softFill,
+    stroke: PDF_THEME.border,
+    radius: 18,
+  });
+  drawAccentBar(state.pdf, state.layout.left + 16, state.y + 14, 118, 22, PDF_THEME.surfaceMuted, accent);
 
-  for (const line of lines) {
-    ensureSpace(state, 15, { continuedTitle: title });
-    state.pdf.text(line, state.layout.left, state.y);
-    state.y += 15;
-  }
+  setPdfBodyFont(state.pdf, "bold");
+  state.pdf.setFontSize(8.5);
+  state.pdf.setTextColor(...accent);
+  state.pdf.text(title.toUpperCase(), state.layout.left + 28, state.y + 29);
 
-  state.y += 8;
+  setPdfBodyFont(state.pdf, "normal");
+  state.pdf.setFontSize(10.5);
+  state.pdf.setTextColor(...PDF_THEME.neutral);
+  state.pdf.text(lines, state.layout.left + 16, state.y + 50);
+
+  state.y += panelHeight + 10;
 }
 
 function drawScenarioSection(state, card) {
@@ -590,9 +895,11 @@ function drawScenarioSection(state, card) {
   drawSubsectionTitle(state, card.scenarioTitle);
 
   for (const [index, item] of card.scenarioSteps.entries()) {
-    const badgeWidth = 84;
-    const contentWidth = state.layout.contentWidth - badgeWidth - 26;
-    const titleLines = state.pdf.splitTextToSize(`${index + 1}. ${cleanText(item.label)}`, contentWidth);
+    const toneKey = item.status === "ok" ? "validated" : item.status === "ko" ? "failed" : "untested";
+    const stepTone = getStatusTone(toneKey);
+    const badgeWidth = 88;
+    const contentWidth = state.layout.contentWidth - badgeWidth - 86;
+    const titleLines = state.pdf.splitTextToSize(cleanText(item.label), contentWidth);
     const metaLines = state.pdf.splitTextToSize(
       cleanText(item.testStamp || "Étape non testée pour le moment."),
       contentWidth,
@@ -605,58 +912,71 @@ function drawScenarioSection(state, card) {
         ]
       : [];
     const itemHeight = Math.max(
-      52,
-      20
+      74,
+      28
         + titleLines.length * 14
         + metaLines.length * 12
-        + (bugBlocks.length ? bugBlocks.length * 12 + 12 : 0),
+        + (bugBlocks.length ? bugBlocks.length * 12 + 28 : 0),
     );
 
     if (ensureSpace(state, itemHeight + 8, { continuedTitle: "Scénario utilisateur" })) {
       drawSubsectionTitle(state, `${card.scenarioTitle} (suite)`);
     }
 
-    state.pdf.setDrawColor(226, 232, 240);
-    state.pdf.setFillColor(255, 255, 255);
-    state.pdf.roundedRect(
-      state.layout.left,
-      state.y,
-      state.layout.contentWidth,
-      itemHeight,
-      12,
-      12,
-      "FD",
-    );
+    drawPanel(state.pdf, state.layout.left, state.y, state.layout.contentWidth, itemHeight, {
+      fill: stepTone.soft,
+      stroke: stepTone.stroke,
+      radius: 18,
+    });
 
-    let cursorY = state.y + 18;
-    state.pdf.setFont("helvetica", "bold");
+    state.pdf.setFillColor(...PDF_THEME.surface);
+    state.pdf.setDrawColor(...stepTone.stroke);
+    state.pdf.circle(state.layout.left + 24, state.y + 28, 12, "FD");
+    setPdfBodyFont(state.pdf, "bold");
+    state.pdf.setFontSize(10);
+    state.pdf.setTextColor(...stepTone.text);
+    state.pdf.text(String(index + 1), state.layout.left + 24, state.y + 32, { align: "center" });
+
+    let cursorY = state.y + 24;
+    setPdfBodyFont(state.pdf, "bold");
     state.pdf.setFontSize(11);
-    state.pdf.setTextColor(15, 23, 42);
-    state.pdf.text(titleLines, state.layout.left + 12, cursorY);
-    cursorY += titleLines.length * 14 + 2;
+    state.pdf.setTextColor(...PDF_THEME.text);
+    state.pdf.text(titleLines, state.layout.left + 48, cursorY);
+    cursorY += titleLines.length * 14 + 6;
 
-    state.pdf.setFont("helvetica", "normal");
+    setPdfBodyFont(state.pdf, "normal");
     state.pdf.setFontSize(9.5);
-    state.pdf.setTextColor(100, 116, 139);
-    state.pdf.text(metaLines, state.layout.left + 12, cursorY);
-    cursorY += metaLines.length * 12 + 2;
+    state.pdf.setTextColor(...PDF_THEME.textSoft);
+    state.pdf.text(metaLines, state.layout.left + 48, cursorY);
+    cursorY += metaLines.length * 12 + 4;
 
     if (bugBlocks.length) {
-      cursorY += 4;
-      state.pdf.setFont("helvetica", "normal");
+      drawPanel(
+        state.pdf,
+        state.layout.left + 48,
+        cursorY,
+        state.layout.contentWidth - 64,
+        bugBlocks.length * 12 + 18,
+        {
+          fill: PDF_THEME.dangerSoft,
+          stroke: stepTone.stroke,
+          radius: 14,
+        },
+      );
+      setPdfBodyFont(state.pdf, "normal");
       state.pdf.setFontSize(9.5);
-      state.pdf.setTextColor(185, 28, 28);
-      state.pdf.text(bugBlocks, state.layout.left + 12, cursorY);
+      state.pdf.setTextColor(...PDF_THEME.danger);
+      state.pdf.text(bugBlocks, state.layout.left + 58, cursorY + 14);
     }
 
     drawSmallBadge(
       state.pdf,
-      state.layout.right - badgeWidth,
-      state.y + 8,
-      badgeWidth - 10,
-      18,
+      state.layout.right - badgeWidth - 12,
+      state.y + 18,
+      badgeWidth,
+      20,
       item.statusBadgeLabel || item.statusLabel,
-      getStatusTone(item.status === "ok" ? "validated" : item.status === "ko" ? "failed" : "untested"),
+      stepTone,
     );
 
     state.y += itemHeight + 8;
@@ -666,40 +986,45 @@ function drawScenarioSection(state, card) {
 }
 
 function drawObservedSection(state, card) {
-  drawSectionLabel(state, "Résultats observés");
+  drawSectionLabel(state, "Résultats");
 
-  let hasContent = false;
+  const workingItems = card.workingItems.length
+    ? card.workingItems
+    : [
+      card.reportStatus.key === "validated"
+        ? "Scénario validé sans anomalie bloquante observée."
+        : "Aucun élément positif explicite n'a encore été documenté.",
+    ];
+  const problemItems = card.problemItems.length
+    ? card.problemItems
+    : [
+      card.reportStatus.key === "failed"
+        ? "Les anomalies remontées restent à consolider dans les prochaines relectures."
+        : "Aucun problème bloquant n'a été remonté dans cette fiche.",
+    ];
 
-  if (card.workingItems.length) {
-    hasContent = true;
-    drawBulletSection(state, "Ce qui fonctionne", card.workingItems, {
-      continuedTitle: "Résultats observés",
-      bulletColor: [5, 150, 105],
+  const compactGrid = canRenderResultGrid(state.pdf, state.layout.contentWidth, workingItems, problemItems);
+  if (compactGrid) {
+    drawResultGrid(state, workingItems, problemItems);
+  } else {
+    drawBulletSection(state, "Ce qui fonctionne", workingItems, {
+      continuedTitle: "Résultats",
+      bulletColor: PDF_THEME.success,
+      fillColor: PDF_THEME.successSoft,
     });
-  }
-
-  if (card.problemItems.length) {
-    hasContent = true;
-    drawBulletSection(state, "Problèmes détectés", card.problemItems, {
-      continuedTitle: "Résultats observés",
-      bulletColor: [220, 38, 38],
+    drawBulletSection(state, "Problèmes détectés", problemItems, {
+      continuedTitle: "Résultats",
+      bulletColor: PDF_THEME.danger,
+      fillColor: PDF_THEME.dangerSoft,
     });
   }
 
   if (card.recommendations.length) {
-    hasContent = true;
     drawBulletSection(state, "Recommandations", card.recommendations, {
-      continuedTitle: "Résultats observés",
-      bulletColor: [37, 99, 235],
+      continuedTitle: "Résultats",
+      bulletColor: PDF_THEME.primary,
+      fillColor: PDF_THEME.primarySoft,
     });
-  }
-
-  if (!hasContent) {
-    const fallback =
-      card.reportStatus.key === "validated"
-        ? "Aucun dysfonctionnement n'a été remonté sur cette carte."
-        : "La carte reste à documenter plus finement pour consolider les constats terrain.";
-    drawParagraphSection(state, "Constat", fallback);
   }
 }
 
@@ -708,35 +1033,45 @@ function drawBulletSection(state, title, items, options = {}) {
     return;
   }
 
-  const bulletColor = options.bulletColor || [37, 99, 235];
-  drawSubsectionTitle(state, title);
+  const bulletColor = options.bulletColor || PDF_THEME.primary;
+  const fillColor = options.fillColor || PDF_THEME.surface;
+  const panelHeight = measureBulletSectionHeight(state.pdf, items, state.layout.contentWidth - 34);
 
-  for (const item of items) {
-    const lines = state.pdf.splitTextToSize(cleanText(item), state.layout.contentWidth - 18);
-    const itemHeight = lines.length * 14 + 4;
+  ensureSpace(state, panelHeight + 10, { continuedTitle: options.continuedTitle || title });
+  drawPanel(state.pdf, state.layout.left, state.y, state.layout.contentWidth, panelHeight, {
+    fill: fillColor,
+    stroke: PDF_THEME.border,
+    radius: 18,
+  });
+  drawAccentBar(state.pdf, state.layout.left + 16, state.y + 14, 126, 22, PDF_THEME.surfaceMuted, bulletColor);
 
-    if (ensureSpace(state, itemHeight + 4, { continuedTitle: options.continuedTitle || title })) {
-      drawSubsectionTitle(state, `${title} (suite)`);
-    }
+  setPdfBodyFont(state.pdf, "bold");
+  state.pdf.setFontSize(8.5);
+  state.pdf.setTextColor(...bulletColor);
+  state.pdf.text(title.toUpperCase(), state.layout.left + 28, state.y + 29);
 
+  let cursorY = state.y + 50;
+  const textX = state.layout.left + 28;
+  items.forEach((item) => {
+    const lines = state.pdf.splitTextToSize(cleanText(item), state.layout.contentWidth - 46);
     state.pdf.setFillColor(...bulletColor);
-    state.pdf.circle(state.layout.left + 4, state.y + 5, 2.2, "F");
-    state.pdf.setFont("helvetica", "normal");
-    state.pdf.setFontSize(11);
-    state.pdf.setTextColor(51, 65, 85);
-    state.pdf.text(lines, state.layout.left + 14, state.y + 8);
-    state.y += itemHeight;
-  }
+    state.pdf.circle(state.layout.left + 16, cursorY + 4, 2.4, "F");
+    setPdfBodyFont(state.pdf, "normal");
+    state.pdf.setFontSize(10.5);
+    state.pdf.setTextColor(...PDF_THEME.neutral);
+    state.pdf.text(lines, textX, cursorY + 8);
+    cursorY += lines.length * 13 + 6;
+  });
 
-  state.y += 6;
+  state.y += panelHeight + 10;
 }
 
 function drawSubsectionTitle(state, title) {
   const lines = state.pdf.splitTextToSize(cleanText(title), state.layout.contentWidth);
   ensureSpace(state, Math.max(18, lines.length * 12 + 6));
-  state.pdf.setFont("helvetica", "bold");
-  state.pdf.setFontSize(10);
-  state.pdf.setTextColor(100, 116, 139);
+  setPdfBodyFont(state.pdf, "bold");
+  state.pdf.setFontSize(9.5);
+  state.pdf.setTextColor(...PDF_THEME.textSoft);
   state.pdf.text(lines, state.layout.left, state.y);
   state.y += lines.length * 12;
 }
@@ -774,9 +1109,13 @@ async function drawScreenshotsSection(state, card) {
 
     const offsetX = x + (imageWidth - fitted.width) / 2;
 
-    state.pdf.setDrawColor(226, 232, 240);
-    state.pdf.setFillColor(255, 255, 255);
-    state.pdf.roundedRect(x, state.y, imageWidth, blockHeight, 14, 14, "FD");
+    drawPanel(state.pdf, x, state.y, imageWidth, blockHeight, {
+      fill: PDF_THEME.surface,
+      stroke: PDF_THEME.border,
+      radius: 16,
+    });
+    state.pdf.setFillColor(...PDF_THEME.surfaceMuted);
+    state.pdf.roundedRect(x + 8, state.y + 8, imageWidth - 16, fitted.height + 4, 12, 12, "F");
     state.pdf.addImage(
       asset.dataUrl,
       asset.format,
@@ -788,9 +1127,9 @@ async function drawScreenshotsSection(state, card) {
       "FAST",
     );
 
-    state.pdf.setFont("helvetica", "normal");
-    state.pdf.setFontSize(10);
-    state.pdf.setTextColor(100, 116, 139);
+    setPdfBodyFont(state.pdf, "normal");
+    state.pdf.setFontSize(9.5);
+    state.pdf.setTextColor(...PDF_THEME.textSoft);
     const caption = truncateText(cleanText(shot.name || "Capture"), 46);
     state.pdf.text(caption, x + imageWidth / 2, state.y + blockHeight - 8, {
       align: "center",
@@ -814,27 +1153,40 @@ async function drawScreenshotsSection(state, card) {
 }
 
 function drawInfoBox(state, title, paragraphs) {
-  ensureSpace(state, 110);
-  state.pdf.setFillColor(255, 255, 255);
-  state.pdf.setDrawColor(226, 232, 240);
-  state.pdf.roundedRect(state.layout.left, state.y, state.layout.contentWidth, 102, 16, 16, "FD");
+  const linesCollection = paragraphs
+    .map((paragraph) => state.pdf.splitTextToSize(cleanText(paragraph), state.layout.contentWidth - 34))
+    .filter((lines) => lines.length);
+  const bodyHeight = linesCollection.reduce((total, lines) => total + lines.length * 13 + 8, 0);
+  const boxHeight = Math.max(126, 48 + bodyHeight);
 
-  state.pdf.setFont("helvetica", "bold");
-  state.pdf.setFontSize(14);
-  state.pdf.setTextColor(15, 23, 42);
-  state.pdf.text(title, state.layout.left + 16, state.y + 22);
+  ensureSpace(state, boxHeight + 10);
+  drawPanel(state.pdf, state.layout.left, state.y, state.layout.contentWidth, boxHeight, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 20,
+  });
+  drawAccentBar(state.pdf, state.layout.left + 18, state.y + 16, 154, 26, PDF_THEME.warningSoft, PDF_THEME.warning);
 
-  state.pdf.setFont("helvetica", "normal");
-  state.pdf.setFontSize(11);
-  state.pdf.setTextColor(71, 85, 105);
-  let y = state.y + 42;
-  paragraphs.forEach((paragraph) => {
-    const lines = state.pdf.splitTextToSize(cleanText(paragraph), state.layout.contentWidth - 32);
-    state.pdf.text(lines, state.layout.left + 16, y);
-    y += lines.length * 14 + 6;
+  setPdfBodyFont(state.pdf, "bold");
+  state.pdf.setFontSize(9);
+  state.pdf.setTextColor(...PDF_THEME.warning);
+  state.pdf.text("ÉTAT ACTUEL", state.layout.left + 34, state.y + 34);
+
+  setPdfDisplayFont(state.pdf);
+  state.pdf.setFontSize(16);
+  state.pdf.setTextColor(...PDF_THEME.text);
+  state.pdf.text(title, state.layout.left + 18, state.y + 62);
+
+  setPdfBodyFont(state.pdf, "normal");
+  state.pdf.setFontSize(10.5);
+  state.pdf.setTextColor(...PDF_THEME.neutral);
+  let y = state.y + 84;
+  linesCollection.forEach((lines) => {
+    state.pdf.text(lines, state.layout.left + 18, y);
+    y += lines.length * 13 + 8;
   });
 
-  state.y += 118;
+  state.y += boxHeight + 10;
 }
 
 function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
@@ -842,31 +1194,65 @@ function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
 
   tocPageNumbers.forEach((pageNumber, pageIndex) => {
     pdf.setPage(pageNumber);
-    pdf.setFillColor(248, 250, 252);
+    pdf.setFillColor(...PDF_THEME.page);
     pdf.rect(0, 0, layout.width, layout.height, "F");
 
     let y = layout.top;
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.setTextColor(37, 99, 235);
-    pdf.text("SOMMAIRE", layout.left, y);
-    y += 18;
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(24);
-    pdf.setTextColor(15, 23, 42);
-    pdf.text("Table des matières des cartes testées", layout.left, y);
-    y += 26;
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(88, 102, 122);
     const intro = pageIndex === 0
       ? `${report.detailScope.tocIntro} Chaque entrée renvoie vers la fiche correspondante dans le document.`
       : "Suite du sommaire des cartes testées.";
-    const introLines = pdf.splitTextToSize(intro, layout.contentWidth);
-    pdf.text(introLines, layout.left, y);
-    y += introLines.length * 14 + 10;
+    const introLines = pdf.splitTextToSize(intro, layout.contentWidth - 36);
+    const headerHeight = 72 + introLines.length * 14;
+
+    drawPanel(pdf, layout.left, y, layout.contentWidth, headerHeight, {
+      fill: PDF_THEME.surface,
+      stroke: PDF_THEME.border,
+      radius: 24,
+    });
+    drawAccentBar(pdf, layout.left + 18, y + 18, 96, 24, PDF_THEME.primarySoft, PDF_THEME.primary);
+
+    setPdfBodyFont(pdf, "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(...PDF_THEME.primary);
+    pdf.text("SOMMAIRE", layout.left + 34, y + 34);
+
+    setPdfDisplayFont(pdf);
+    pdf.setFontSize(24);
+    pdf.setTextColor(...PDF_THEME.text);
+    pdf.text("Table des matières des cartes testées", layout.left + 18, y + 64);
+
+    setPdfBodyFont(pdf, "normal");
+    pdf.setFontSize(11);
+    pdf.setTextColor(...PDF_THEME.textMuted);
+    pdf.text(introLines, layout.left + 18, y + 88);
+    y += headerHeight + 14;
+
+    const statWidth = (layout.contentWidth - 20) / 3;
+    drawDashboardMetaCard(
+      pdf,
+      layout.left,
+      y,
+      statWidth,
+      "Cartes détaillées",
+      `${report.detailScope.detailedCount} / ${report.detailScope.totalCount}`,
+    );
+    drawDashboardMetaCard(
+      pdf,
+      layout.left + statWidth + 10,
+      y,
+      statWidth,
+      "Échecs",
+      String(report.reportStats.failedCount),
+    );
+    drawDashboardMetaCard(
+      pdf,
+      layout.left + (statWidth + 10) * 2,
+      y,
+      statWidth,
+      "En cours",
+      String(report.reportStats.partialCount),
+    );
+    y += 54;
 
     const rows = cards.slice(pageIndex * TOC_ROWS_PER_PAGE, (pageIndex + 1) * TOC_ROWS_PER_PAGE);
     if (!rows.length) {
@@ -874,40 +1260,58 @@ function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
       return;
     }
 
-    rows.forEach((card) => {
-      const rowHeight = 28;
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(226, 232, 240);
-      pdf.roundedRect(layout.left, y, layout.contentWidth, rowHeight, 12, 12, "FD");
+    rows.forEach((card, rowIndex) => {
+      const rowHeight = 42;
+      drawPanel(pdf, layout.left, y, layout.contentWidth, rowHeight, {
+        fill: PDF_THEME.surface,
+        stroke: PDF_THEME.border,
+        radius: 16,
+      });
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.setTextColor(15, 23, 42);
-      pdf.text(truncateText(card.title, 54), layout.left + 14, y + 17);
-
-      pdf.setFont("helvetica", "normal");
+      pdf.setFillColor(...PDF_THEME.primarySoft);
+      pdf.circle(layout.left + 20, y + 21, 10, "F");
+      setPdfBodyFont(pdf, "bold");
       pdf.setFontSize(9);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(truncateText(`${card.surfaceName} · ${card.pageName}`, 34), layout.left + 232, y + 17);
+      pdf.setTextColor(...PDF_THEME.primary);
+      pdf.text(
+        String(pageIndex * TOC_ROWS_PER_PAGE + rowIndex + 1).padStart(2, "0"),
+        layout.left + 20,
+        y + 24,
+        { align: "center" },
+      );
+
+      setPdfBodyFont(pdf, "bold");
+      pdf.setFontSize(10);
+      pdf.setTextColor(...PDF_THEME.text);
+      pdf.text(truncateText(card.title, 48), layout.left + 40, y + 18);
+
+      setPdfBodyFont(pdf, "normal");
+      pdf.setFontSize(9);
+      pdf.setTextColor(...PDF_THEME.textSoft);
+      pdf.text(truncateText(`${card.surfaceName} · ${card.pageName}`, 34), layout.left + 40, y + 31);
 
       const statusTone = getStatusTone(card.reportStatus.key);
       const badgeLabel = card.reportStatus.badgeLabel || card.reportStatus.label;
-      pdf.setFont("helvetica", "bold");
+      setPdfBodyFont(pdf, "bold");
       pdf.setFontSize(8.5);
-      const badgeWidth = Math.max(58, pdf.getTextWidth(badgeLabel.toUpperCase()) + 18);
+      const badgeWidth = Math.max(66, pdf.getTextWidth(badgeLabel.toUpperCase()) + 18);
+      const severityLabel = card.severity.badgeLabel || card.severity.label;
+      const severityWidth = Math.max(62, pdf.getTextWidth(severityLabel.toUpperCase()) + 18);
 
       const targetPage = cardPageMap[card.id];
       const pageLabel = `p. ${targetPage || "-"}`;
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
+      setPdfBodyFont(pdf, "bold");
+      pdf.setFontSize(9.5);
       const pageTextWidth = pdf.getTextWidth(pageLabel);
-      const badgeX = layout.right - 14 - pageTextWidth - 14 - badgeWidth;
-      drawSmallBadge(pdf, badgeX, y + 5, badgeWidth, 18, badgeLabel, statusTone);
+      const statusX = layout.right - 14 - pageTextWidth - 12 - badgeWidth;
+      const severityX = statusX - 8 - severityWidth;
+      drawOutlinePill(pdf, severityX, y + 10, severityWidth, 18, severityLabel, getSeverityTone(card.severity.tone));
+      drawSmallBadge(pdf, statusX, y + 10, badgeWidth, 18, badgeLabel, statusTone);
 
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(10);
-      pdf.setTextColor(37, 99, 235);
-      pdf.text(pageLabel, layout.right - 14, y + 17, { align: "right" });
+      setPdfBodyFont(pdf, "bold");
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(...PDF_THEME.primary);
+      pdf.text(pageLabel, layout.right - 14, y + 24, { align: "right" });
 
       if (targetPage) {
         pdf.link(layout.left, y, layout.contentWidth, rowHeight, { pageNumber: targetPage });
@@ -919,23 +1323,31 @@ function drawTocPages(pdf, layout, report, tocPageNumbers, cardPageMap) {
 }
 
 function drawTocEmptyState(pdf, layout, y) {
-  pdf.setFillColor(255, 255, 255);
-  pdf.setDrawColor(226, 232, 240);
-  pdf.roundedRect(layout.left, y, layout.contentWidth, 84, 16, 16, "FD");
+  drawPanel(pdf, layout.left, y, layout.contentWidth, 148, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.border,
+    radius: 20,
+  });
+  drawAccentBar(pdf, layout.left + 18, y + 18, 158, 26, PDF_THEME.warningSoft, PDF_THEME.warning);
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(13);
-  pdf.setTextColor(15, 23, 42);
-  pdf.text("Aucune carte testée disponible", layout.left + 16, y + 26);
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(9);
+  pdf.setTextColor(...PDF_THEME.warning);
+  pdf.text("AUCUNE ENTRÉE DÉTAILLÉE", layout.left + 34, y + 35);
 
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(11);
-  pdf.setTextColor(88, 102, 122);
+  setPdfDisplayFont(pdf);
+  pdf.setFontSize(16);
+  pdf.setTextColor(...PDF_THEME.text);
+  pdf.text("Le sommaire se remplira dès qu'une carte sera testée.", layout.left + 18, y + 64);
+
+  setPdfBodyFont(pdf, "normal");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(...PDF_THEME.textMuted);
   const lines = pdf.splitTextToSize(
-    "Le sommaire se remplira automatiquement dès qu'au moins une carte sera réellement rejouée ou documentée.",
-    layout.contentWidth - 32,
+    "Une carte entre dans le détail dès qu'au moins une étape a été jouée, ou si des notes, captures ou un statut QA hors « À lancer » sont déjà présents.",
+    layout.contentWidth - 36,
   );
-  pdf.text(lines, layout.left + 16, y + 46);
+  pdf.text(lines, layout.left + 18, y + 88);
 }
 
 function drawSmallBadge(pdf, x, y, width, height, label, tone) {
@@ -943,10 +1355,10 @@ function drawSmallBadge(pdf, x, y, width, height, label, tone) {
   pdf.setDrawColor(...tone.stroke);
   pdf.roundedRect(x, y, width, height, 10, 10, "FD");
 
-  pdf.setFont("helvetica", "bold");
+  setPdfBodyFont(pdf, "bold");
   pdf.setFontSize(8.5);
   pdf.setTextColor(...tone.text);
-  pdf.text(label.toUpperCase(), x + width / 2, y + 12, { align: "center" });
+  pdf.text(label.toUpperCase(), x + width / 2, y + height / 2 + 3, { align: "center" });
 }
 
 function decoratePdf(pdf, layout, report) {
@@ -963,20 +1375,20 @@ function decoratePdf(pdf, layout, report) {
     pdf.setPage(pageNumber);
 
     if (pageNumber > 1) {
-      pdf.setDrawColor(226, 232, 240);
+      pdf.setDrawColor(...PDF_THEME.border);
       pdf.line(layout.left, 30, layout.right, 30);
-      pdf.setFont("helvetica", "bold");
+      setPdfBodyFont(pdf, "bold");
       pdf.setFontSize(8.5);
-      pdf.setTextColor(100, 116, 139);
+      pdf.setTextColor(...PDF_THEME.textSoft);
       pdf.text(report.brand.companyName.toUpperCase(), layout.left, 20);
       pdf.text(report.brand.projectName, layout.right, 20, { align: "right" });
     }
 
-    pdf.setDrawColor(226, 232, 240);
+    pdf.setDrawColor(...PDF_THEME.border);
     pdf.line(layout.left, layout.height - 26, layout.right, layout.height - 26);
-    pdf.setFont("helvetica", "normal");
+    setPdfBodyFont(pdf, "normal");
     pdf.setFontSize(8.5);
-    pdf.setTextColor(100, 116, 139);
+    pdf.setTextColor(...PDF_THEME.textSoft);
     pdf.text(
       `${report.brand.reportName} · ${report.brand.projectName}`,
       layout.left,
@@ -989,6 +1401,237 @@ function decoratePdf(pdf, layout, report) {
       { align: "right" },
     );
   }
+}
+
+function drawPanel(pdf, x, y, width, height, options = {}) {
+  const fill = options.fill || PDF_THEME.surface;
+  const stroke = options.stroke || PDF_THEME.border;
+  const radius = options.radius || 18;
+  pdf.setFillColor(...fill);
+  pdf.setDrawColor(...stroke);
+  pdf.roundedRect(x, y, width, height, radius, radius, "FD");
+}
+
+function setPdfDisplayFont(pdf) {
+  if (pdf.__qaredataFontsRegistered) {
+    pdf.setFont("Quantify", "normal");
+    return;
+  }
+  pdf.setFont("helvetica", "bold");
+}
+
+function setPdfBodyFont(pdf, weight = "normal") {
+  if (pdf.__qaredataFontsRegistered) {
+    if (weight === "black") {
+      pdf.setFont("PoppinsBlack", "normal");
+      return;
+    }
+    pdf.setFont("Poppins", weight === "bold" ? "bold" : "normal");
+    return;
+  }
+
+  pdf.setFont("helvetica", weight === "normal" ? "normal" : "bold");
+}
+
+function paintFlowPageBackground(pdf, layout) {
+  pdf.setFillColor(...PDF_THEME.page);
+  pdf.rect(0, 0, layout.width, layout.height, "F");
+}
+
+function drawAccentBar(pdf, x, y, width, height, fill, stroke) {
+  pdf.setFillColor(...fill);
+  pdf.setDrawColor(...stroke);
+  pdf.roundedRect(x, y, width, height, height / 2, height / 2, "FD");
+}
+
+function drawLogoPanel(pdf, x, y, size, report, logoAsset) {
+  drawPanel(pdf, x, y, size, size, {
+    fill: PDF_THEME.surfaceMuted,
+    stroke: PDF_THEME.border,
+    radius: 22,
+  });
+
+  if (logoAsset) {
+    const logoSize = fitIntoBox(logoAsset.width, logoAsset.height, size - 22, size - 22);
+    pdf.addImage(
+      logoAsset.dataUrl,
+      logoAsset.format,
+      x + (size - logoSize.width) / 2,
+      y + (size - logoSize.height) / 2,
+      logoSize.width,
+      logoSize.height,
+      undefined,
+      "FAST",
+    );
+    return;
+  }
+
+  setPdfDisplayFont(pdf);
+  pdf.setFontSize(26);
+  pdf.setTextColor(...PDF_THEME.primary);
+  pdf.text(report.brand.logoFallback || "QA", x + size / 2, y + size / 2 + 8, { align: "center" });
+}
+
+function drawProgressBar(pdf, x, y, width, height, value, tone) {
+  const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  pdf.setFillColor(...tone.soft);
+  pdf.roundedRect(x, y, width, height, height / 2, height / 2, "F");
+  pdf.setFillColor(...tone.fill);
+  pdf.roundedRect(x, y, width * (clamped / 100), height, height / 2, height / 2, "F");
+}
+
+function drawMiniStat(pdf, x, y, width, label, value) {
+  drawPanel(pdf, x, y, width, 18, {
+    fill: PDF_THEME.surfaceMuted,
+    stroke: PDF_THEME.borderSoft,
+    radius: 10,
+  });
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...PDF_THEME.textSoft);
+  pdf.text(label.toUpperCase(), x + 8, y + 12);
+  pdf.text(value, x + width - 8, y + 12, { align: "right" });
+}
+
+function drawInfoChip(pdf, x, y, width, label, value) {
+  drawPanel(pdf, x, y, width, 22, {
+    fill: PDF_THEME.surface,
+    stroke: PDF_THEME.borderSoft,
+    radius: 10,
+  });
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8);
+  pdf.setTextColor(...PDF_THEME.textSoft);
+  pdf.text(label.toUpperCase(), x + 8, y + 8);
+
+  setPdfBodyFont(pdf, "normal");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...PDF_THEME.text);
+  const lines = pdf.splitTextToSize(cleanText(value), width - 16).slice(0, 1);
+  pdf.text(lines, x + 8, y + 17);
+}
+
+function drawOutlinePill(pdf, x, y, width, height, label, tone) {
+  pdf.setFillColor(...tone.fill);
+  pdf.setDrawColor(...tone.stroke);
+  pdf.roundedRect(x, y, width, height, height / 2, height / 2, "FD");
+
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8);
+  pdf.setTextColor(...tone.text);
+  pdf.text(label.toUpperCase(), x + width / 2, y + height / 2 + 3, { align: "center" });
+}
+
+function drawBulletListInPanel(pdf, x, y, width, height, items, options = {}) {
+  const bulletColor = options.bulletColor || PDF_THEME.primary;
+  const fontSize = options.fontSize || 10.5;
+  const lineHeight = options.lineHeight || 14;
+  let cursorY = y;
+  const limitY = y + height - 8;
+
+  items.forEach((item) => {
+    if (cursorY > limitY) {
+      return;
+    }
+
+    const lines = pdf.splitTextToSize(cleanText(item), width - 14).slice(0, 3);
+    const blockHeight = lines.length * lineHeight;
+    if (cursorY + blockHeight > limitY) {
+      return;
+    }
+
+    pdf.setFillColor(...bulletColor);
+    pdf.circle(x + 3, cursorY + 4, 2.4, "F");
+    setPdfBodyFont(pdf, "normal");
+    pdf.setFontSize(fontSize);
+    pdf.setTextColor(...PDF_THEME.neutral);
+    pdf.text(lines, x + 12, cursorY + 8);
+    cursorY += blockHeight + 6;
+  });
+}
+
+function toSentenceList(text, maxItems = 5) {
+  return (String(text || "").match(/[^.!?]+[.!?]?/g) || [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
+function measureBulletSectionHeight(pdf, items, width) {
+  return items.reduce((total, item) => {
+    const lines = pdf.splitTextToSize(cleanText(item), width - 12);
+    return total + lines.length * 13 + 6;
+  }, 52);
+}
+
+function canRenderResultGrid(pdf, contentWidth, leftItems, rightItems) {
+  const width = (contentWidth - 12) / 2;
+  const leftHeight = measureBulletSectionHeight(pdf, leftItems, width - 22);
+  const rightHeight = measureBulletSectionHeight(pdf, rightItems, width - 22);
+  return Math.max(leftHeight, rightHeight) <= 168;
+}
+
+function drawResultGrid(state, workingItems, problemItems) {
+  const gap = 12;
+  const columnWidth = (state.layout.contentWidth - gap) / 2;
+  const leftHeight = measureBulletSectionHeight(state.pdf, workingItems, columnWidth - 22);
+  const rightHeight = measureBulletSectionHeight(state.pdf, problemItems, columnWidth - 22);
+  const boxHeight = Math.max(leftHeight, rightHeight);
+
+  ensureSpace(state, boxHeight + 10, { continuedTitle: "Résultats" });
+  drawResultColumn(
+    state.pdf,
+    state.layout.left,
+    state.y,
+    columnWidth,
+    boxHeight,
+    "Ce qui fonctionne",
+    workingItems,
+    {
+      accent: PDF_THEME.success,
+      soft: PDF_THEME.successSoft,
+    },
+  );
+  drawResultColumn(
+    state.pdf,
+    state.layout.left + columnWidth + gap,
+    state.y,
+    columnWidth,
+    boxHeight,
+    "Problèmes détectés",
+    problemItems,
+    {
+      accent: PDF_THEME.danger,
+      soft: PDF_THEME.dangerSoft,
+    },
+  );
+  state.y += boxHeight + 10;
+}
+
+function drawResultColumn(pdf, x, y, width, height, title, items, tone) {
+  drawPanel(pdf, x, y, width, height, {
+    fill: tone.soft,
+    stroke: PDF_THEME.border,
+    radius: 18,
+  });
+  drawAccentBar(pdf, x + 14, y + 14, 122, 22, PDF_THEME.surface, tone.accent);
+
+  setPdfBodyFont(pdf, "bold");
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(...tone.accent);
+  pdf.text(title.toUpperCase(), x + 26, y + 29);
+
+  let cursorY = y + 48;
+  items.forEach((item) => {
+    const lines = pdf.splitTextToSize(cleanText(item), width - 28);
+    pdf.setFillColor(...tone.accent);
+    pdf.circle(x + 14, cursorY + 4, 2.4, "F");
+    setPdfBodyFont(pdf, "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(...PDF_THEME.neutral);
+    pdf.text(lines, x + 24, cursorY + 8);
+    cursorY += lines.length * 12 + 6;
+  });
 }
 
 function getStatusTone(key) {
@@ -1020,6 +1663,29 @@ function getStatusTone(key) {
         soft: [248, 250, 252],
         stroke: [203, 213, 225],
         text: [100, 116, 139],
+      };
+  }
+}
+
+function getSeverityTone(key) {
+  switch (key) {
+    case "blocker":
+      return {
+        fill: PDF_THEME.dangerSoft,
+        stroke: [252, 165, 165],
+        text: PDF_THEME.danger,
+      };
+    case "minor":
+      return {
+        fill: [238, 242, 255],
+        stroke: [165, 180, 252],
+        text: [79, 70, 229],
+      };
+    default:
+      return {
+        fill: PDF_THEME.warningSoft,
+        stroke: [253, 186, 116],
+        text: PDF_THEME.warning,
       };
   }
 }

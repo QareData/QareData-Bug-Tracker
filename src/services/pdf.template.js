@@ -31,75 +31,124 @@ export function buildPrintablePdfDocument(report, options = {}) {
 }
 
 function renderCoverPage(report) {
+  const coverage = formatPercent(report.reportStats.testedCount, report.reportStats.totalCards);
+  const summaryItems = toSentenceList(report.summaryText, 5);
+  const scopeItems = [
+    report.detailScope.summary,
+    report.detailScope.inclusionNote,
+  ];
+  const vigilanceItems = report.topProblems.length
+    ? report.topProblems.slice(0, 3).map((card) => `${card.title} · ${card.reportStatus.label}`)
+    : [
+      `${report.metrics.blockersCount} point(s) bloquant(s) encore ouvert(s).`,
+      `${report.metrics.notesCount} carte(s) avec notes terrain et ${report.metrics.screenshotsCount} capture(s) déjà jointes.`,
+    ];
+
   return `
     <section class="report-page report-cover">
-      <div class="cover-top">
-        <div class="cover-brand">
-          <div class="cover-logo">
-            <img
-              src="${escapeAttribute(report.brand.logoPath)}"
-              alt="Logo ${escapeAttribute(report.brand.companyName)}"
-              onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
-            />
-            <span class="cover-logo-fallback">${escapeHtml(report.brand.logoFallback || "QA")}</span>
+      <div class="page-frame">
+        <section class="hero-card">
+          <div class="hero-copy">
+            <span class="eyebrow-chip eyebrow-chip--primary">QA Dashboard</span>
+            <p class="hero-company">${escapeHtml(report.brand.companyName)}</p>
+            <h1>${escapeHtml(report.brand.reportName)}</h1>
+            <p class="hero-project">${escapeHtml(report.brand.projectName)}</p>
+            <div class="meta-grid">
+              ${renderMetaItem("Testeur", report.meta.tester || "Non renseigné")}
+              ${renderMetaItem("Environnement", report.meta.environment || "Non renseigné")}
+              ${renderMetaItem("Généré le", formatReportDate(report.generatedAt))}
+            </div>
           </div>
-          <div>
-            <p class="eyebrow">Rapport QA</p>
-            <h1>${escapeHtml(report.brand.companyName)}</h1>
-            <h2>${escapeHtml(report.brand.reportName)}</h2>
-            <p class="lead">${escapeHtml(report.brand.projectName)}</p>
-          </div>
-        </div>
 
-        <div class="cover-meta">
-          ${renderMetaItem("Testeur", report.meta.tester || "Non renseigné")}
-          ${renderMetaItem("Environnement", report.meta.environment || "Non renseigné")}
-          ${renderMetaItem("Date de génération", formatReportDate(report.generatedAt))}
-        </div>
+          <aside class="hero-score-card">
+            <div class="brand-mark">
+              <img
+                src="${escapeAttribute(report.brand.logoPath)}"
+                alt="Logo ${escapeAttribute(report.brand.companyName)}"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"
+              />
+              <span class="brand-mark__fallback">${escapeHtml(report.brand.logoFallback || "QA")}</span>
+            </div>
+
+            <div class="score-card">
+              <span class="eyebrow-chip eyebrow-chip--subtle">Score QA</span>
+              <strong class="score-card__value">${escapeHtml(String(report.reportStats.scorePercent))}%</strong>
+              <p class="score-card__copy">Couverture ${escapeHtml(coverage)} • ${escapeHtml(String(report.reportStats.testedCount))}/${escapeHtml(String(report.reportStats.totalCards))} cartes testées</p>
+              ${renderProgressBar(report.reportStats.scorePercent, "progress-primary")}
+              <div class="mini-stats">
+                ${renderMiniStat("Notes", report.metrics.notesCount)}
+                ${renderMiniStat("Captures", report.metrics.screenshotsCount)}
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <section class="dashboard-grid">
+          ${renderMetricTile("Total cartes", report.reportStats.totalCards, "primary")}
+          ${renderMetricTile("Validées", report.reportStats.validatedCount, "success")}
+          ${renderMetricTile("Échouées", report.reportStats.failedCount, "danger")}
+          ${renderMetricTile("En cours", report.reportStats.partialCount, "warning")}
+        </section>
+
+        <section class="summary-grid">
+          ${renderInsightCard("Résumé global", summaryItems, "primary")}
+          <div class="summary-grid__side">
+            ${renderInsightCard("Périmètre du détail", scopeItems, "primary compact")}
+            ${renderInsightCard(report.topProblems.length ? "Points de vigilance" : "Activité QA", vigilanceItems, report.topProblems.length ? "danger compact" : "warning compact")}
+          </div>
+        </section>
+
+        ${renderPageFooter(report, "Dashboard QA")}
       </div>
-
-      <section class="summary-card">
-        <h3>Résumé global</h3>
-        <div class="kpi-grid">
-          ${renderKpi("Total cartes", report.reportStats.totalCards)}
-          ${renderKpi("Cartes détaillées", report.detailScope.detailedCount)}
-          ${renderKpi("Validées", report.reportStats.validatedCount)}
-          ${renderKpi("Échouées", report.reportStats.failedCount)}
-          ${renderKpi("Score QA", `${report.reportStats.scorePercent}%`)}
-        </div>
-        <p class="summary-text">${escapeHtml(report.summaryText)}</p>
-        ${renderScopeNote(report, "Périmètre du détail")}
-      </section>
     </section>
   `;
 }
 
 function renderTocPage(report) {
+  const intro = `${report.detailScope.tocIntro} Chaque entrée renvoie vers la fiche correspondante dans le document.`;
+
   return `
     <section class="report-page">
-      <p class="eyebrow">Sommaire</p>
-      <h2>Table des matières</h2>
-      <p class="page-intro">Chaque carte détaillée ci-dessous pointe vers sa fiche complète dans le document.</p>
-      ${renderScopeNote(report, "Règle d'inclusion")}
-      <div class="toc-list">
-        ${
-          report.tocCards.length
-            ? report.tocCards
-              .map(
-                (card, index) => `
-                  <a class="toc-row" href="#card-${escapeAttribute(card.id)}">
-                    <span class="toc-index">${String(index + 1).padStart(2, "0")}</span>
-                    <span class="toc-copy">
-                      <strong>${escapeHtml(card.title)}</strong>
-                      <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
-                    </span>
-                    <span class="toc-status status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.badgeLabel || card.reportStatus.label)}</span>
-                  </a>
-                `,
+      <div class="page-frame">
+        <section class="section-hero">
+          <span class="eyebrow-chip eyebrow-chip--primary">Sommaire</span>
+          <h2>Table des matières des cartes testées</h2>
+          <p class="page-intro">${escapeHtml(intro)}</p>
+          <div class="meta-strip">
+            ${renderMetaStripItem("Cartes détaillées", `${report.detailScope.detailedCount} / ${report.detailScope.totalCount}`)}
+            ${renderMetaStripItem("Échecs", report.reportStats.failedCount)}
+            ${renderMetaStripItem("En cours", report.reportStats.partialCount)}
+          </div>
+        </section>
+
+        <section class="toc-list">
+          ${
+            report.tocCards.length
+              ? report.tocCards
+                .map(
+                  (card, index) => `
+                    <a class="toc-row" href="#card-${escapeAttribute(card.id)}">
+                      <span class="toc-index">${String(index + 1).padStart(2, "0")}</span>
+                      <span class="toc-copy">
+                        <strong>${escapeHtml(card.title)}</strong>
+                        <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
+                      </span>
+                      <span class="toc-tags">
+                        ${renderPill(card.severity.tone, card.severity.badgeLabel || card.severity.label)}
+                        ${renderPill(card.reportStatus.key, card.reportStatus.badgeLabel || card.reportStatus.label)}
+                      </span>
+                    </a>
+                  `,
+                )
+                .join("")
+              : renderEmptyPanel(
+                "Aucune entrée détaillée pour le moment",
+                "Le sommaire se remplira dès qu'une carte comportera au moins une étape jouée, des notes, des captures ou un statut QA hors « À lancer ».",
               )
-              .join("")
-            : `<div class="empty-card">Aucune carte testée n'est encore disponible dans le rapport.</div>`
-        }
+          }
+        </section>
+
+        ${renderPageFooter(report, "Sommaire")}
       </div>
     </section>
   `;
@@ -108,27 +157,36 @@ function renderTocPage(report) {
 function renderSummaryPage(report) {
   return `
     <section class="report-page">
-      <p class="eyebrow">Synthèse</p>
-      <h2>Vue d'ensemble de la campagne</h2>
-      ${renderScopeNote(report, "Lecture du PDF")}
-      <div class="surface-grid">
-        ${report.surfaces.map((surface) => renderSurfaceCard(surface)).join("")}
+      <div class="page-frame">
+        <section class="section-hero">
+          <span class="eyebrow-chip eyebrow-chip--primary">Synthèse</span>
+          <h2>Vue d'ensemble de la campagne</h2>
+          <p class="page-intro">${escapeHtml(report.detailScope.summary)}</p>
+        </section>
+
+        <section class="surface-grid">
+          ${report.surfaces.map((surface) => renderSurfaceCard(surface)).join("")}
+        </section>
+
+        ${
+          report.topProblems.length
+            ? `
+              <section class="detail-section detail-section--plain">
+                <div class="section-title-row">
+                  <span class="eyebrow-chip eyebrow-chip--danger">Priorités QA</span>
+                </div>
+                <ul class="bullet-list bullet-list--danger">
+                  ${report.topProblems.map((card) => `<li>${escapeHtml(card.title)} · ${escapeHtml(card.surfaceName)} / ${escapeHtml(card.pageName)} · ${escapeHtml(card.reportStatus.label)}</li>`).join("")}
+                </ul>
+              </section>
+            `
+            : ""
+        }
+
+        ${renderUndetailedCardsSection(report)}
+
+        ${renderPageFooter(report, "Synthèse")}
       </div>
-
-      ${
-        report.topProblems.length
-          ? `
-            <section class="section-block">
-              <h3>Priorités QA</h3>
-              <ul class="bullet-list">
-                ${report.topProblems.map((card) => `<li>${escapeHtml(card.title)} · ${escapeHtml(card.surfaceName)} / ${escapeHtml(card.pageName)} · ${escapeHtml(card.reportStatus.label)}</li>`).join("")}
-              </ul>
-            </section>
-          `
-          : ""
-      }
-
-      ${renderUndetailedCardsSection(report)}
     </section>
   `;
 }
@@ -142,17 +200,23 @@ function renderSurfaceCard(surface) {
   return `
     <article class="surface-card">
       <div class="surface-card__head">
-        <h3>${escapeHtml(surface.name)}</h3>
-        <strong>${surface.metrics.qaScore}%</strong>
+        <div>
+          <h3>${escapeHtml(surface.name)}</h3>
+          <p>${escapeHtml(surface.description || "Surface sans description complémentaire.")}</p>
+        </div>
+        <strong>${escapeHtml(String(surface.metrics.qaScore))}%</strong>
       </div>
-      <p>${escapeHtml(surface.description || "Surface sans description complémentaire.")}</p>
+
+      ${renderProgressBar(surface.metrics.qaScore, "progress-primary")}
+
       <div class="surface-card__stats">
-        <span>${surface.metrics.totalCards} cartes</span>
-        <span>${surface.metrics.doneCount} validées</span>
-        <span>${surface.metrics.progressCount} en cours</span>
-        <span>${surface.metrics.blockersCount} bloquantes</span>
+        <span>${escapeHtml(String(surface.metrics.totalCards))} cartes</span>
+        <span>${escapeHtml(String(surface.metrics.doneCount))} validées</span>
+        <span>${escapeHtml(String(surface.metrics.progressCount))} en cours</span>
+        <span>${escapeHtml(String(surface.metrics.blockersCount))} bloquantes</span>
       </div>
-      <small>Couverture actuelle: ${coverage}</small>
+
+      <small>Couverture actuelle : ${escapeHtml(coverage)}</small>
     </article>
   `;
 }
@@ -161,59 +225,101 @@ function renderDetailPages(report) {
   if (!report.detailCards.length) {
     return `
       <section class="report-page">
-        <p class="eyebrow">Détail</p>
-        <h2>Aucune carte testée</h2>
-        <div class="empty-card">Aucune étape utilisateur n'a encore été validée ou documentée dans le board.</div>
+        <div class="page-frame">
+          <section class="section-hero">
+            <span class="eyebrow-chip eyebrow-chip--primary">Détail</span>
+            <h2>Rapport détaillé des cartes testées</h2>
+            <p class="page-intro">${escapeHtml(report.detailScope.detailIntro)}</p>
+          </section>
+
+          ${renderEmptyPanel(
+            "Aucune carte détaillée",
+            `${report.detailScope.summary} ${report.detailScope.inclusionNote}`,
+          )}
+
+          ${renderPageFooter(report, "Détail")}
+        </div>
       </section>
     `;
   }
 
   return `
-    <section class="report-flow">
-      <div class="detail-intro">
-        <p class="eyebrow">Détail des cartes</p>
-        <h2>Rapport détaillé des cartes testées</h2>
-        <p class="page-intro">${escapeHtml(report.detailScope.detailIntro)}</p>
-        <p class="page-intro">${escapeHtml(report.detailScope.inclusionNote)}</p>
-      </div>
+    <section class="report-page report-page--detail-intro">
+      <div class="page-frame">
+        <section class="section-hero">
+          <span class="eyebrow-chip eyebrow-chip--primary">Détail des cartes</span>
+          <h2>Rapport détaillé des vérifications QA</h2>
+          <p class="page-intro">${escapeHtml(report.detailScope.detailIntro)}</p>
+          <div class="meta-strip">
+            ${renderMetaStripItem("Détaillées", report.detailScope.detailedCount)}
+            ${renderMetaStripItem("Échecs", report.reportStats.failedCount)}
+            ${renderMetaStripItem("En cours", report.reportStats.partialCount)}
+            ${renderMetaStripItem("Captures", report.metrics.screenshotsCount)}
+          </div>
+        </section>
 
+        ${renderPageFooter(report, "Détail")}
+      </div>
+    </section>
+
+    <section class="report-flow">
       ${report.detailCards.map((card) => renderDetailCard(card)).join("")}
     </section>
   `;
 }
 
 function renderDetailCard(card) {
+  const workingItems = card.workingItems.length
+    ? card.workingItems
+    : [
+      card.reportStatus.key === "validated"
+        ? "Scénario validé sans anomalie bloquante observée."
+        : "Aucun élément positif explicite n'a encore été documenté.",
+    ];
+  const problemItems = card.problemItems.length
+    ? card.problemItems
+    : [
+      card.reportStatus.key === "failed"
+        ? "Les anomalies remontées restent à consolider dans les prochaines relectures."
+        : "Aucun problème bloquant n'a été remonté dans cette fiche.",
+    ];
+
   return `
     <article class="detail-card" id="card-${escapeAttribute(card.id)}">
-      <header class="detail-card__head">
-        <div>
+      <header class="detail-card__header tone-${escapeAttribute(card.reportStatus.key)}">
+        <div class="detail-card__intro">
           <p class="detail-path">${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</p>
           <h3>${escapeHtml(card.title)}</h3>
           <p class="detail-scenario">${escapeHtml(card.scenarioTitle)}</p>
         </div>
+
         <div class="detail-badges">
-          <span class="pill status-${escapeAttribute(card.reportStatus.key)}">${escapeHtml(card.reportStatus.badgeLabel || card.reportStatus.label)}</span>
-          <span class="pill severity-${escapeAttribute(card.severity.tone)}">${escapeHtml(card.severity.badgeLabel || card.severity.label)}</span>
+          ${renderPill(card.reportStatus.key, card.reportStatus.badgeLabel || card.reportStatus.label)}
+          ${renderPill(`severity-${card.severity.tone}`, card.severity.badgeLabel || card.severity.label)}
         </div>
       </header>
 
-      <div class="detail-meta">
-        <span><strong>Statut QA:</strong> ${escapeHtml(card.status.label)}</span>
-        <span><strong>Testeur:</strong> ${escapeHtml(card.tester || "Non renseigné")}</span>
-        <span><strong>Environnement:</strong> ${escapeHtml(card.environment || "Non renseigné")}</span>
-        <span><strong>Progression:</strong> ${card.checklist.checked}/${card.checklist.total} (${card.checklist.progressPercent}%)</span>
+      <div class="detail-meta-grid">
+        ${renderMetaStripItem("Statut QA", card.status.label)}
+        ${renderMetaStripItem("Progression", `${card.checklist.checked}/${card.checklist.total} • ${card.checklist.progressPercent}%`)}
+        ${renderMetaStripItem("Testeur", card.tester || "Non renseigné")}
+        ${renderMetaStripItem("Environnement", card.environment || "Non renseigné")}
       </div>
 
-      <section class="section-block">
-        <h4>Description du test</h4>
+      <section class="detail-section">
+        <div class="section-title-row">
+          <span class="eyebrow-chip eyebrow-chip--subtle">Description</span>
+        </div>
         <p>${escapeHtml(card.testDescription)}</p>
       </section>
 
       ${
         card.expectedResult
           ? `
-            <section class="section-block">
-              <h4>Résultat attendu</h4>
+            <section class="detail-section detail-section--success">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--success">Résultat attendu</span>
+              </div>
               <p>${escapeHtml(card.expectedResult)}</p>
             </section>
           `
@@ -223,26 +329,51 @@ function renderDetailCard(card) {
       ${
         card.scenarioSteps.length
           ? `
-            <section class="section-block">
-              <h4>Scénario utilisateur</h4>
-              <div class="step-list">
-                ${card.scenarioSteps.map((step, index) => renderStep(step, index)).join("")}
+            <section class="detail-section">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--primary">Scénario utilisateur</span>
               </div>
+              <ol class="timeline">
+                ${card.scenarioSteps.map((step, index) => renderStep(step, index)).join("")}
+              </ol>
             </section>
           `
           : ""
       }
 
-      ${renderOptionalListSection("Ce qui fonctionne", card.workingItems, "success")}
-      ${renderOptionalListSection("Problèmes détectés", card.problemItems, "danger")}
-      ${renderOptionalListSection("Recommandations", card.recommendations, "info")}
+      <section class="detail-section">
+        <div class="section-title-row">
+          <span class="eyebrow-chip eyebrow-chip--subtle">Résultats</span>
+        </div>
+        <div class="result-grid">
+          ${renderResultPanel("✔ Ce qui fonctionne", workingItems, "success")}
+          ${renderResultPanel("✖ Problèmes détectés", problemItems, "danger")}
+        </div>
+      </section>
+
+      ${
+        card.recommendations.length
+          ? `
+            <section class="detail-section detail-section--info">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--primary">Recommandations</span>
+              </div>
+              <ul class="bullet-list bullet-list--info">
+                ${card.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+              </ul>
+            </section>
+          `
+          : ""
+      }
 
       ${
         card.notes
           ? `
-            <section class="section-block">
-              <h4>Notes</h4>
-              <p>${escapeHtml(card.notes)}</p>
+            <section class="detail-section detail-section--warning">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--warning">Notes</span>
+              </div>
+              <blockquote class="note-block">${escapeHtml(card.notes)}</blockquote>
             </section>
           `
           : ""
@@ -251,8 +382,10 @@ function renderDetailCard(card) {
       ${
         card.screenshots.length
           ? `
-            <section class="section-block">
-              <h4>Images</h4>
+            <section class="detail-section">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--subtle">Images</span>
+              </div>
               <div class="image-grid">
                 ${card.screenshots.map((shot) => `
                   <figure class="image-card">
@@ -269,9 +402,11 @@ function renderDetailCard(card) {
       ${
         card.references.length
           ? `
-            <section class="section-block">
-              <h4>Références utiles</h4>
-              <ul class="bullet-list">
+            <section class="detail-section detail-section--plain">
+              <div class="section-title-row">
+                <span class="eyebrow-chip eyebrow-chip--subtle">Références utiles</span>
+              </div>
+              <ul class="bullet-list bullet-list--info">
                 ${card.references.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
               </ul>
             </section>
@@ -283,68 +418,41 @@ function renderDetailCard(card) {
 }
 
 function renderStep(step, index) {
+  const statusKey = step.status === "ok" ? "validated" : step.status === "ko" ? "failed" : "untested";
+
   return `
-    <div class="step-card step-${escapeAttribute(step.status)}">
-      <div class="step-card__head">
-        <strong>${index + 1}. ${escapeHtml(step.label)}</strong>
-        <span class="pill status-${escapeAttribute(step.status === "ok" ? "validated" : step.status === "ko" ? "failed" : "untested")}">${escapeHtml(step.statusBadgeLabel || step.statusLabel)}</span>
+    <li class="timeline-item timeline-item--${escapeAttribute(step.status)}">
+      <span class="timeline-index">${index + 1}</span>
+      <div class="timeline-card">
+        <div class="timeline-card__head">
+          <strong>${escapeHtml(step.label)}</strong>
+          ${renderPill(statusKey, step.statusBadgeLabel || step.statusLabel)}
+        </div>
+        <p class="step-stamp">${escapeHtml(step.testStamp || "Étape non testée pour le moment.")}</p>
+        ${
+          step.status === "ko" && step.bug
+            ? `
+              <div class="bug-box">
+                <p><strong>Bug :</strong> ${escapeHtml(step.bug.description)}</p>
+                <p><strong>Observé :</strong> ${escapeHtml(step.bug.observedBehavior)}</p>
+                <p><strong>Attendu :</strong> ${escapeHtml(step.bug.expectedResult)}</p>
+              </div>
+            `
+            : ""
+        }
       </div>
-      <p class="step-stamp">${escapeHtml(step.testStamp || "Étape non testée pour le moment.")}</p>
-      ${
-        step.status === "ko" && step.bug
-          ? `
-            <div class="bug-box">
-              <p><strong>Bug:</strong> ${escapeHtml(step.bug.description)}</p>
-              <p><strong>Observé:</strong> ${escapeHtml(step.bug.observedBehavior)}</p>
-              <p><strong>Attendu:</strong> ${escapeHtml(step.bug.expectedResult)}</p>
-            </div>
-          `
-          : ""
-      }
-    </div>
+    </li>
   `;
 }
 
-function renderOptionalListSection(title, items, tone) {
-  if (!items.length) {
-    return "";
-  }
-
+function renderResultPanel(title, items, tone) {
   return `
-    <section class="section-block">
+    <article class="result-panel result-panel--${escapeAttribute(tone)}">
       <h4>${escapeHtml(title)}</h4>
       <ul class="bullet-list bullet-list--${escapeAttribute(tone)}">
         ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
       </ul>
-    </section>
-  `;
-}
-
-function renderMetaItem(label, value) {
-  return `
-    <div class="meta-item">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
-    </div>
-  `;
-}
-
-function renderKpi(label, value) {
-  return `
-    <div class="kpi-item">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(String(value))}</strong>
-    </div>
-  `;
-}
-
-function renderScopeNote(report, title) {
-  return `
-    <section class="scope-note">
-      <strong>${escapeHtml(title)}</strong>
-      <p>${escapeHtml(report.detailScope.summary)}</p>
-      <p>${escapeHtml(report.detailScope.inclusionNote)}</p>
-    </section>
+    </article>
   `;
 }
 
@@ -354,8 +462,10 @@ function renderUndetailedCardsSection(report) {
   }
 
   return `
-    <section class="section-block">
-      <h3>Cartes non détaillées</h3>
+    <section class="detail-section detail-section--plain">
+      <div class="section-title-row">
+        <span class="eyebrow-chip eyebrow-chip--subtle">Cartes non détaillées</span>
+      </div>
       <p class="page-intro">Ces cartes restent visibles dans le périmètre global, mais n'entrent pas encore dans le détail faute d'activité QA documentée.</p>
       <div class="undetailed-list">
         ${report.undetailedCards.map((card) => `
@@ -369,44 +479,209 @@ function renderUndetailedCardsSection(report) {
   `;
 }
 
+function renderInsightCard(title, items, toneClass) {
+  const [tone, maybeCompact] = String(toneClass || "primary").split(" ");
+  const compactClass = maybeCompact === "compact" ? " insight-card--compact" : "";
+  const listTone = tone === "danger" ? "danger" : tone === "warning" ? "warning" : "info";
+
+  return `
+    <section class="insight-card insight-card--${escapeAttribute(tone)}${compactClass}">
+      <div class="section-title-row">
+        <span class="eyebrow-chip eyebrow-chip--${escapeAttribute(tone)}">${escapeHtml(title)}</span>
+      </div>
+      <ul class="bullet-list bullet-list--${escapeAttribute(listTone)}">
+        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
+    </section>
+  `;
+}
+
+function renderMetricTile(label, value, tone) {
+  return `
+    <article class="metric-tile metric-tile--${escapeAttribute(tone)}">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+    </article>
+  `;
+}
+
+function renderMetaItem(label, value) {
+  return `
+    <div class="meta-item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+    </div>
+  `;
+}
+
+function renderMetaStripItem(label, value) {
+  return `
+    <div class="meta-strip__item">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+    </div>
+  `;
+}
+
+function renderMiniStat(label, value) {
+  return `
+    <div class="mini-stat">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(String(value))}</strong>
+    </div>
+  `;
+}
+
+function renderPageFooter(report, sectionLabel) {
+  return `
+    <footer class="page-footer">
+      <span>${escapeHtml(report.brand.reportName)} · ${escapeHtml(report.brand.projectName)}</span>
+      <span>${escapeHtml(sectionLabel)} · ${escapeHtml(formatReportDate(report.generatedAt))}</span>
+    </footer>
+  `;
+}
+
+function renderPill(theme, label) {
+  return `<span class="pill pill--${escapeAttribute(theme)}">${escapeHtml(label)}</span>`;
+}
+
+function renderProgressBar(value, className) {
+  const clamped = Math.max(0, Math.min(100, Number(value) || 0));
+  return `
+    <div class="progress ${escapeAttribute(className)}">
+      <span style="width:${clamped}%"></span>
+    </div>
+  `;
+}
+
+function renderEmptyPanel(title, copy) {
+  return `
+    <section class="empty-panel">
+      <span class="eyebrow-chip eyebrow-chip--warning">État actuel</span>
+      <h3>${escapeHtml(title)}</h3>
+      <p>${escapeHtml(copy)}</p>
+    </section>
+  `;
+}
+
+function toSentenceList(text, maxItems = 5) {
+  return (String(text || "").match(/[^.!?]+[.!?]?/g) || [])
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, maxItems);
+}
+
 function buildPrintableStyles() {
   return `
+    @font-face {
+      font-family: "Quantify";
+      src: url("./assets/fonts/quantify/Quantify.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Poppins";
+      src: url("./assets/fonts/poppins/Poppins-Regular.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 400;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Poppins";
+      src: url("./assets/fonts/poppins/Poppins-Medium.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 500;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Poppins";
+      src: url("./assets/fonts/poppins/Poppins-SemiBold.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 600;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Poppins";
+      src: url("./assets/fonts/poppins/Poppins-Bold.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: "Poppins";
+      src: url("./assets/fonts/poppins/Poppins-Black.ttf") format("truetype");
+      font-style: normal;
+      font-weight: 900;
+      font-display: swap;
+    }
+
+    :root {
+      --font-display: "Quantify", "Poppins", "Segoe UI", sans-serif;
+      --font-body: "Poppins", "Segoe UI", sans-serif;
+      --bg: #f3f7fc;
+      --surface: #ffffff;
+      --surface-muted: #f8fbff;
+      --border: #dbe4f0;
+      --border-soft: #e8eef6;
+      --text: #172033;
+      --text-muted: #5d6b85;
+      --text-soft: #70819c;
+      --primary: #2563eb;
+      --primary-soft: #e6eeff;
+      --success: #16a34a;
+      --success-soft: #ecfdf3;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --warning: #d97706;
+      --warning-soft: #fff7ed;
+      --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+    }
+
     @page {
       size: A4;
-      margin: 16mm 14mm;
+      margin: 14mm 12mm;
     }
 
     * {
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
-      color: #172033;
-      background: #eef3fb;
-      font-family: "Segoe UI", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      font-family: var(--font-body);
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
     body {
-      padding: 24px 0;
+      padding: 18px 0;
     }
 
     .report-shell {
-      width: min(100%, 880px);
+      width: min(100%, 980px);
       margin: 0 auto;
       display: grid;
-      gap: 24px;
+      gap: 22px;
     }
 
     .report-page,
     .report-flow {
-      background: #ffffff;
-      border: 1px solid #dbe4f0;
-      border-radius: 28px;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 26%),
+        linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      box-shadow: var(--shadow);
       padding: 28px;
     }
 
@@ -418,208 +693,371 @@ function buildPrintableStyles() {
       break-after: auto;
     }
 
-    .report-page:last-child,
-    .report-flow:last-child {
-      break-after: auto;
+    .page-frame {
+      min-height: 248mm;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
     }
 
-    .report-cover {
-      background: linear-gradient(145deg, #ffffff 0%, #f7faff 100%);
-    }
-
-    .eyebrow {
-      margin: 0 0 8px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.14em;
-      text-transform: uppercase;
-      color: #4f6b95;
-    }
-
-    h1, h2, h3, h4, p {
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    ul,
+    ol,
+    figure,
+    blockquote {
       margin: 0;
     }
 
     h1 {
+      font-family: var(--font-display);
+      font-weight: 400;
       font-size: 34px;
-      line-height: 1;
+      line-height: 1.04;
     }
 
     h2 {
-      font-size: 26px;
-      line-height: 1.1;
-      margin-bottom: 8px;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 28px;
+      line-height: 1.08;
     }
 
     h3 {
-      font-size: 18px;
-      line-height: 1.2;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 20px;
+      line-height: 1.15;
     }
 
     h4 {
+      font-family: var(--font-body);
+      font-weight: 700;
       font-size: 14px;
       line-height: 1.3;
-      margin-bottom: 10px;
     }
 
-    p {
-      line-height: 1.6;
+    p,
+    li,
+    small {
+      font-family: var(--font-body);
+      font-weight: 400;
+      line-height: 1.55;
     }
 
-    .lead,
+    .hero-card,
+    .section-hero,
+    .detail-card,
+    .detail-section,
+    .surface-card,
+    .metric-tile,
+    .toc-row,
+    .insight-card,
+    .empty-panel {
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.96);
+    }
+
+    .hero-card,
+    .section-hero,
+    .detail-card,
+    .detail-section,
+    .surface-card,
+    .metric-tile,
+    .insight-card,
+    .empty-panel {
+      padding: 20px;
+    }
+
+    .hero-card {
+      display: grid;
+      grid-template-columns: 1.35fr 0.9fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .hero-copy,
+    .hero-score-card,
+    .score-card,
+    .summary-grid__side,
+    .section-hero,
+    .detail-card,
+    .detail-section,
+    .surface-card,
+    .insight-card,
+    .empty-panel {
+      display: grid;
+      gap: 14px;
+    }
+
+    .eyebrow-chip {
+      font-family: var(--font-body);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid transparent;
+    }
+
+    .eyebrow-chip--primary,
+    .pill--validated,
+    .pill--partial,
+    .pill--untested,
+    .pill--failed,
+    .pill--severity-blocker,
+    .pill--severity-major,
+    .pill--severity-minor {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border-color: rgba(37, 99, 235, 0.16);
+    }
+
+    .eyebrow-chip--subtle {
+      background: var(--surface-muted);
+      color: var(--text-muted);
+      border-color: var(--border-soft);
+    }
+
+    .eyebrow-chip--success {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: rgba(22, 163, 74, 0.18);
+    }
+
+    .eyebrow-chip--danger {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: rgba(220, 38, 38, 0.16);
+    }
+
+    .eyebrow-chip--warning {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border-color: rgba(217, 119, 6, 0.16);
+    }
+
+    .hero-company,
+    .hero-project,
     .page-intro,
     .detail-scenario,
     .detail-path,
     .step-stamp,
     .meta-item span,
-    .kpi-item span,
+    .meta-strip__item span,
+    .metric-tile span,
     .surface-card p,
-    .surface-card small {
-      color: #5d6b85;
+    .surface-card small,
+    .page-footer,
+    .toc-copy small,
+    .mini-stat span {
+      color: var(--text-muted);
     }
 
-    .cover-top {
+    .hero-company {
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .meta-grid {
       display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 20px;
-      align-items: start;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
     }
 
-    .cover-brand {
+    .meta-item,
+    .meta-strip__item,
+    .mini-stat {
       display: grid;
-      grid-template-columns: 96px 1fr;
-      gap: 18px;
-      align-items: center;
+      gap: 4px;
+      border: 1px solid var(--border-soft);
+      border-radius: 16px;
+      background: var(--surface-muted);
+      padding: 12px 14px;
     }
 
-    .cover-logo {
-      width: 96px;
-      height: 96px;
-      border-radius: 24px;
-      border: 1px solid #dbe4f0;
+    .meta-item strong,
+    .meta-strip__item strong,
+    .mini-stat strong {
+      font-family: var(--font-body);
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .hero-score-card {
+      align-content: start;
+    }
+
+    .brand-mark {
+      width: 88px;
+      height: 88px;
+      border-radius: 22px;
+      border: 1px solid var(--border);
+      background: var(--surface-muted);
       display: grid;
       place-items: center;
       overflow: hidden;
-      background: #ffffff;
     }
 
-    .cover-logo img {
+    .brand-mark img {
       width: 100%;
       height: 100%;
       object-fit: contain;
     }
 
-    .cover-logo-fallback {
+    .brand-mark__fallback {
       display: none;
       width: 100%;
       height: 100%;
       place-items: center;
-      font-size: 28px;
-      font-weight: 800;
-      color: #1e3a8a;
+      font-family: var(--font-display);
+      font-weight: 400;
+      font-size: 26px;
+      color: var(--primary);
     }
 
-    .cover-meta,
-    .kpi-grid,
-    .surface-grid {
-      display: grid;
-      gap: 12px;
+    .score-card {
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: linear-gradient(180deg, #ffffff 0%, #f9fbff 100%);
+      padding: 18px;
     }
 
-    .cover-meta {
-      grid-template-columns: 1fr;
-    }
-
-    .meta-item,
-    .kpi-item,
-    .surface-card,
-    .section-block,
-    .detail-card,
-    .toc-row,
-    .empty-card {
-      border: 1px solid #dbe4f0;
-      border-radius: 20px;
-      background: #ffffff;
-    }
-
-    .meta-item,
-    .kpi-item,
-    .surface-card,
-    .section-block,
-    .detail-card,
-    .empty-card {
-      padding: 16px;
-    }
-
-    .meta-item,
-    .kpi-item {
-      display: grid;
-      gap: 6px;
-    }
-
-    .summary-card {
-      display: grid;
-      gap: 16px;
-      padding: 20px;
-      border-radius: 24px;
-      background: #f8fbff;
-      border: 1px solid #dbe4f0;
-    }
-
-    .kpi-grid {
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-    }
-
-    .kpi-item strong {
-      font-size: 24px;
+    .score-card__value {
+      font-family: var(--font-body);
+      font-weight: 900;
+      font-size: 48px;
       line-height: 1;
     }
 
-    .summary-text {
-      color: #31415f;
+    .score-card__copy {
+      font-size: 13px;
     }
 
-    .scope-note {
-      display: grid;
-      gap: 6px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      border: 1px solid #dbe4f0;
-      background: rgba(255, 255, 255, 0.9);
+    .progress {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      overflow: hidden;
     }
 
-    .scope-note strong {
-      font-size: 12px;
-      color: #28456f;
+    .progress span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--primary);
     }
 
-    .scope-note p {
-      font-size: 12px;
-      color: #42526c;
-    }
-
-    .toc-list,
-    .step-list,
-    .image-grid {
+    .mini-stats,
+    .dashboard-grid,
+    .surface-grid,
+    .summary-grid,
+    .result-grid,
+    .image-grid,
+    .undetailed-list,
+    .detail-meta-grid,
+    .meta-strip {
       display: grid;
       gap: 12px;
+    }
+
+    .mini-stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .metric-tile {
+      gap: 10px;
+    }
+
+    .metric-tile strong {
+      font-family: var(--font-body);
+      font-weight: 900;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .metric-tile--primary {
+      box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.1);
+    }
+
+    .metric-tile--success {
+      background: linear-gradient(180deg, #ffffff 0%, #f5fff8 100%);
+    }
+
+    .metric-tile--danger {
+      background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+    }
+
+    .metric-tile--warning {
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+    }
+
+    .summary-grid {
+      grid-template-columns: 1.2fr 0.8fr;
+    }
+
+    .surface-grid,
+    .undetailed-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .insight-card--compact {
+      min-height: 0;
+    }
+
+    .meta-strip {
+      grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+    }
+
+    .section-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .toc-list {
+      display: grid;
+      gap: 10px;
     }
 
     .toc-row {
       display: grid;
-      grid-template-columns: 44px 1fr auto;
-      gap: 12px;
+      grid-template-columns: 42px 1fr auto;
+      gap: 14px;
       align-items: center;
-      padding: 14px 16px;
       text-decoration: none;
       color: inherit;
+      padding: 16px 18px;
     }
 
     .toc-index {
-      font-size: 12px;
+      font-family: var(--font-body);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
       font-weight: 800;
-      color: #6a7c9b;
+      color: var(--primary);
+      background: var(--primary-soft);
     }
 
     .toc-copy {
@@ -627,17 +1065,21 @@ function buildPrintableStyles() {
       gap: 4px;
     }
 
-    .toc-copy small {
-      color: #6a7c9b;
+    .toc-tags,
+    .detail-badges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
     }
 
-    .toc-status,
     .pill {
+      font-family: var(--font-body);
       display: inline-flex;
       align-items: center;
       justify-content: center;
       min-height: 28px;
-      padding: 0 10px;
+      padding: 0 12px;
       border-radius: 999px;
       font-size: 11px;
       font-weight: 800;
@@ -645,155 +1087,184 @@ function buildPrintableStyles() {
       white-space: nowrap;
     }
 
-    .status-validated {
-      background: rgba(34, 197, 94, 0.12);
-      color: #15803d;
-      border-color: rgba(34, 197, 94, 0.18);
+    .pill--validated {
+      background: var(--success-soft);
+      color: var(--success);
+      border-color: rgba(22, 163, 74, 0.18);
     }
 
-    .status-failed {
-      background: rgba(239, 68, 68, 0.12);
-      color: #dc2626;
-      border-color: rgba(239, 68, 68, 0.18);
+    .pill--failed,
+    .pill--severity-blocker {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border-color: rgba(220, 38, 38, 0.18);
     }
 
-    .status-partial {
-      background: rgba(245, 158, 11, 0.12);
-      color: #b45309;
-      border-color: rgba(245, 158, 11, 0.18);
+    .pill--partial,
+    .pill--severity-major {
+      background: var(--warning-soft);
+      color: var(--warning);
+      border-color: rgba(217, 119, 6, 0.18);
     }
 
-    .status-untested {
-      background: rgba(148, 163, 184, 0.14);
-      color: #64748b;
-      border-color: rgba(148, 163, 184, 0.18);
-    }
-
-    .severity-blocker {
-      background: rgba(239, 68, 68, 0.12);
-      color: #dc2626;
-      border-color: rgba(239, 68, 68, 0.18);
-    }
-
-    .severity-major {
-      background: rgba(249, 115, 22, 0.12);
-      color: #c2410c;
-      border-color: rgba(249, 115, 22, 0.18);
-    }
-
-    .severity-minor {
-      background: rgba(99, 102, 241, 0.12);
-      color: #4f46e5;
-      border-color: rgba(99, 102, 241, 0.18);
-    }
-
-    .surface-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-bottom: 18px;
-    }
-
-    .undetailed-list {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .undetailed-card {
-      display: grid;
-      gap: 4px;
-      padding: 14px 16px;
-      border-radius: 18px;
-      border: 1px dashed #d0dae8;
-      background: #f8fbff;
-      break-inside: avoid;
-    }
-
-    .undetailed-card small {
-      color: #6a7c9b;
-    }
-
-    .surface-card {
-      display: grid;
-      gap: 10px;
+    .pill--untested,
+    .pill--severity-minor {
+      background: var(--surface-muted);
+      color: var(--text-soft);
+      border-color: var(--border-soft);
     }
 
     .surface-card__head,
-    .detail-card__head,
-    .step-card__head {
+    .detail-card__header,
+    .timeline-card__head {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 12px;
     }
 
+    .surface-card__head strong {
+      font-family: var(--font-body);
+      font-weight: 900;
+      font-size: 28px;
+      line-height: 1;
+    }
+
     .surface-card__stats,
-    .detail-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px 14px;
-      color: #42526c;
-      font-size: 12px;
-    }
-
-    .section-block {
-      display: grid;
-      gap: 10px;
-      margin-top: 14px;
-      break-inside: avoid;
-    }
-
-    .detail-intro {
-      margin-bottom: 18px;
+    .detail-meta-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .detail-card {
-      display: grid;
-      gap: 14px;
-      margin-bottom: 18px;
       break-inside: avoid-page;
       page-break-inside: avoid;
+      margin-bottom: 18px;
+      padding: 22px;
     }
 
-    .detail-badges {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: flex-end;
+    .detail-card__header {
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--border-soft);
+    }
+
+    .tone-validated {
+      background: linear-gradient(180deg, #ffffff 0%, #f5fff8 100%);
+    }
+
+    .tone-failed {
+      background: linear-gradient(180deg, #ffffff 0%, #fff7f7 100%);
+    }
+
+    .tone-partial {
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+    }
+
+    .tone-untested {
+      background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
     }
 
     .detail-path {
+      font-family: var(--font-body);
       font-size: 11px;
       font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      margin-bottom: 8px;
     }
 
-    .step-card {
+    .detail-section--success {
+      background: linear-gradient(180deg, #ffffff 0%, #f5fff8 100%);
+    }
+
+    .detail-section--warning {
+      background: linear-gradient(180deg, #ffffff 0%, #fffaf2 100%);
+    }
+
+    .detail-section--info {
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+    }
+
+    .detail-section--plain {
+      background: #ffffff;
+    }
+
+    .timeline {
+      list-style: none;
+      padding: 0;
       display: grid;
-      gap: 8px;
+      gap: 12px;
+    }
+
+    .timeline-item {
+      display: grid;
+      grid-template-columns: 36px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .timeline-index {
+      font-family: var(--font-body);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--primary-soft);
+      color: var(--primary);
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .timeline-card {
+      display: grid;
+      gap: 10px;
       padding: 14px;
-      border: 1px solid #dbe4f0;
       border-radius: 18px;
-      background: #fafcff;
-      break-inside: avoid;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-muted);
     }
 
-    .step-ok {
-      border-color: rgba(34, 197, 94, 0.22);
+    .timeline-item--ok .timeline-card {
+      background: #f7fff9;
+      border-color: rgba(22, 163, 74, 0.18);
     }
 
-    .step-ko {
-      border-color: rgba(239, 68, 68, 0.24);
+    .timeline-item--ko .timeline-card {
+      background: #fff8f8;
+      border-color: rgba(220, 38, 38, 0.18);
     }
 
     .bug-box {
       display: grid;
       gap: 6px;
       padding: 12px;
-      border-radius: 14px;
-      background: rgba(254, 242, 242, 0.8);
-      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 16px;
+      background: var(--danger-soft);
+      border: 1px solid rgba(220, 38, 38, 0.16);
+    }
+
+    .result-grid,
+    .image-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .result-panel {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--border-soft);
+      background: var(--surface-muted);
+    }
+
+    .result-panel--success {
+      background: #f7fff9;
+      border-color: rgba(22, 163, 74, 0.18);
+    }
+
+    .result-panel--danger {
+      background: #fff8f8;
+      border-color: rgba(220, 38, 38, 0.18);
     }
 
     .bullet-list {
@@ -801,29 +1272,35 @@ function buildPrintableStyles() {
       padding-left: 18px;
       display: grid;
       gap: 8px;
-      line-height: 1.55;
     }
 
     .bullet-list--success li::marker {
-      color: #15803d;
+      color: var(--success);
     }
 
     .bullet-list--danger li::marker {
-      color: #dc2626;
+      color: var(--danger);
     }
 
-    .bullet-list--info li::marker {
-      color: #2563eb;
+    .bullet-list--info li::marker,
+    .bullet-list--warning li::marker {
+      color: var(--primary);
     }
 
-    .image-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .note-block {
+      font-family: var(--font-body);
+      margin: 0;
+      padding: 16px 18px;
+      border-left: 4px solid rgba(217, 119, 6, 0.32);
+      border-radius: 16px;
+      background: rgba(255, 247, 237, 0.7);
+      color: var(--text);
     }
 
     .image-card {
       margin: 0;
-      border: 1px solid #dbe4f0;
-      border-radius: 16px;
+      border: 1px solid var(--border-soft);
+      border-radius: 18px;
       overflow: hidden;
       background: #ffffff;
     }
@@ -833,20 +1310,77 @@ function buildPrintableStyles() {
       width: 100%;
       aspect-ratio: 4 / 3;
       object-fit: cover;
-      background: #eef3fb;
+      background: var(--surface-muted);
     }
 
     .image-card figcaption {
+      font-family: var(--font-body);
       padding: 10px 12px;
       font-size: 12px;
-      color: #5d6b85;
+      color: var(--text-muted);
     }
 
-    @media (max-width: 800px) {
+    .empty-panel h3 {
+      font-size: 22px;
+    }
+
+    .detail-card__intro h3,
+    .section-hero h2,
+    .empty-panel h3 {
+      font-family: var(--font-display);
+      font-weight: 400;
+    }
+
+    .score-card__copy,
+    .page-intro,
+    .detail-scenario,
+    .step-stamp,
+    .page-footer,
+    .surface-card p,
+    .surface-card small {
+      font-family: var(--font-body);
+      font-weight: 400;
+    }
+
+    .undetailed-card {
+      display: grid;
+      gap: 4px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px dashed var(--border);
+      background: var(--surface-muted);
+      break-inside: avoid;
+    }
+
+    .page-footer {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+    }
+
+    @media (max-width: 860px) {
+      .hero-card,
+      .summary-grid,
+      .dashboard-grid,
       .surface-grid,
+      .result-grid,
+      .image-grid,
       .undetailed-list,
-      .image-grid {
+      .detail-meta-grid,
+      .meta-grid {
         grid-template-columns: 1fr;
+      }
+
+      .toc-row {
+        grid-template-columns: 42px 1fr;
+      }
+
+      .toc-tags {
+        justify-content: flex-start;
       }
     }
 
@@ -866,8 +1400,6 @@ function buildPrintableStyles() {
       .report-flow {
         box-shadow: none;
         border-radius: 0;
-        border: 0;
-        padding: 0;
       }
     }
   `;
