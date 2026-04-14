@@ -25,7 +25,7 @@
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
-  height: 6px;
+  padding: 10px;
   border-radius: 28px 28px 0 0;
   background: linear-gradient(90deg, var(--brand-blue), var(--brand-royal), var(--brand-mint));
 }
