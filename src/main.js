@@ -26,6 +26,7 @@ import { renderCardDetailed } from "./ui/components/card-detailed.js";
 import { syncSidebarOptions } from "./ui/components/filters.js";
 import { downloadBlob, formatFileStamp, readJsonFile, generateId } from "./utils/format.js";
 import { getElements } from "./app/dom-elements.js";
+import { createCardCountAnimationController } from "./app/card-count-animation.js";
 import { createThemeController } from "./app/theme-controller.js";
 import { createSidebarController } from "./app/sidebar-controller.js";
 import { createCardEditorController } from "./app/card-editor-controller.js";
@@ -35,6 +36,7 @@ import { createModalController } from "./app/modal-controller.js";
 import { createBoardInteractionsController } from "./app/board-interactions-controller.js";
 
 const elements = getElements();
+const isCardCountAnimationPage = isCardCountAnimationEnabledPage();
 const store = createStore({
   board: null,
   filters: {
@@ -49,6 +51,11 @@ const store = createStore({
 });
 
 const themeController = createThemeController({ elements });
+const cardCountAnimationController = isCardCountAnimationPage
+  ? createCardCountAnimationController({
+    root: document.body,
+  })
+  : createNoopCardCountAnimationController();
 const sidebarController = createSidebarController({
   updateFilters,
   render,
@@ -80,6 +87,8 @@ const boardInteractionsController = createBoardInteractionsController({
   cardEditorController,
   updateBoard,
   updateSaveStatus,
+  playCardCountAnimation: cardCountAnimationController.playCardCountAnimation,
+  cardCountAnimationEnabled: isCardCountAnimationPage,
   openCardModal: modalController.openCardModal,
   closeCardModal: modalController.closeCardModal,
   addScenarioStep,
@@ -181,6 +190,7 @@ function render() {
   syncSidebarOptions(state.board, elements, state.filters);
   syncStaticFields(state);
   renderApp(state, elements);
+  cardCountAnimationController.syncCardCountAnimation(getBoardCardCount(state.board));
   cardEditorController.syncCardEditorUi();
 }
 
@@ -410,3 +420,28 @@ function updateSaveStatus(message) {
   elements.saveStatus.textContent = `${compactMessage} · ${now}`;
 }
 
+function getBoardCardCount(board) {
+  return (
+    board?.surfaces?.reduce(
+      (total, surface) =>
+        total + surface.pages.reduce((pageTotal, page) => pageTotal + page.cards.length, 0),
+      0,
+    ) || 0
+  );
+}
+
+function isCardCountAnimationEnabledPage() {
+  const pathname = window.location.pathname.toLowerCase();
+  return pathname.endsWith("/index.html") || pathname.includes("/test/");
+}
+
+function createNoopCardCountAnimationController() {
+  return {
+    playCardCountAnimation() {
+      return false;
+    },
+    syncCardCountAnimation() {
+      return false;
+    },
+  };
+}

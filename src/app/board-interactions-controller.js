@@ -6,6 +6,8 @@ export function createBoardInteractionsController({
   cardEditorController,
   updateBoard,
   updateSaveStatus,
+  playCardCountAnimation,
+  cardCountAnimationEnabled = true,
   openCardModal,
   closeCardModal,
   addScenarioStep,
@@ -275,6 +277,18 @@ export function createBoardInteractionsController({
   }
 
   function handleDocumentKeydown(event) {
+    if (shouldIgnoreGlobalShortcut(event.target) || event.ctrlKey || event.metaKey || event.altKey) {
+      return;
+    }
+
+    if (cardCountAnimationEnabled && (event.key === "§" || event.key === "è")) {
+      event.preventDefault();
+      if (playCardCountAnimation?.()) {
+        updateSaveStatus("Animation de carte lancee.");
+      }
+      return;
+    }
+
     if (event.key !== "Escape") {
       return;
     }
@@ -417,6 +431,12 @@ export function createBoardInteractionsController({
     if (stepRow.dataset.stepStatus === "ok") {
       stepRow.classList.add("is-ok");
     }
+  }
+
+  function shouldIgnoreGlobalShortcut(target) {
+    return Boolean(
+      target?.closest?.("input, textarea, select, [contenteditable='true'], [contenteditable='']"),
+    );
   }
 
   return {
