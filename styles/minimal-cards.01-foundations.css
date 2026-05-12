@@ -1029,7 +1029,7 @@ body.is-theme-transitioning.theme-direction-up * {
   display: flex;
   align-items: flex-start;
   gap: 20px;
-  padding: 24px 16px 40px;
+  padding: 10px 16px 40px;
   overflow: hidden;
 }
 
