@@ -6,11 +6,38 @@ import {
   getSeverityMeta,
 } from "../../core/state.js";
 
-export function renderCard(surface, page, card) {
+export function renderCard(surface, page, card, options = {}) {
+  const compact = Boolean(options.compact);
   const status = getCardStatusMeta(card.status);
   const severity = getSeverityMeta(card.severity);
-  const checklist = getCardChecklistMetrics(card);
   const riskClass = getCardRisk(card) ? "is-risk" : "";
+
+  if (compact) {
+    return `
+      <article
+        class="qa-card qa-card--compact ${riskClass}"
+        data-card-id="${escapeAttribute(card.id)}"
+        role="button"
+        tabindex="0"
+        aria-label="Ouvrir la fiche ${escapeAttribute(card.title)}"
+      >
+        <div class="qa-card__summary">
+          <div class="qa-card__summary-top">
+            <div class="qa-card__title-group">
+              <h4 class="qa-card__title">${escapeHtml(card.title)}</h4>
+            </div>
+
+            <div class="qa-card__pills">
+              <span class="pill pill-status pill-${status.tone}">${escapeHtml(status.label)}</span>
+              <span class="pill pill-severity pill-${severity.tone}">${escapeHtml(severity.label)}</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  const checklist = getCardChecklistMetrics(card);
   const findingsCount = Math.max(card.sourceIssues?.length || 0, checklist.koCount);
   const notesLabel = card.notes.trim() ? "Oui" : "Non";
   const screenshotCount = card.screenshots.length;

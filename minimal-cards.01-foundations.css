@@ -200,7 +200,10 @@ body {
     radial-gradient(circle at top left, rgba(0, 63, 181, 0.14), transparent 24%),
     radial-gradient(circle at top right, rgba(110, 231, 183, 0.18), transparent 20%),
     linear-gradient(180deg, var(--app-canvas) 0%, var(--bg-secondary) 100%);
+  background-attachment: fixed;
+  background-size: cover;
   color: var(--text-strong);
+  min-height: 100vh;
 }
 
 body::before,
@@ -700,6 +703,7 @@ body.is-theme-transitioning.theme-direction-up * {
 
 .title-section {
   min-width: 0;
+  max-width: 100%;
 }
 
 .header-eyebrow {
@@ -726,11 +730,13 @@ body.is-theme-transitioning.theme-direction-up * {
 .app-title {
   font-family: var(--font-display);
   color: var(--brand-navy);
-  font-size: clamp(32px, 4.8vw, 54px);
+  font-size: clamp(24px, 7.2vw, 54px);
   font-weight: 400;
   letter-spacing: 0.04em;
-  line-height: 0.98;
-  text-wrap: balance;
+  line-height: 1.1;
+  margin: 0;
+  max-width: 100%;
+  white-space: nowrap;
 }
 
 .title-section p,
@@ -751,6 +757,11 @@ body.is-theme-transitioning.theme-direction-up * {
   margin-top: 10px;
   font-size: 15px;
   line-height: 1.68;
+}
+
+.app-description:empty,
+.app-description[hidden] {
+  display: none;
 }
 
 .header-actions {

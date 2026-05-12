@@ -27,15 +27,16 @@ function renderBoard(state, root) {
   }
 
   root.innerHTML = filteredSurfaces
-    .map((surface) => renderSurface(surface))
+    .map((surface) => renderSurface(surface, state.filters))
     .join("");
 }
 
-function renderSurface(surface) {
+function renderSurface(surface, filters) {
   const metrics = getSurfaceMetrics(surface);
   const completionPercent = metrics.totalCards
     ? Math.round((metrics.doneCount / metrics.totalCards) * 100)
     : 0;
+  const isExpanded = Boolean(filters?.expandedSurfaces?.[surface.id]);
 
   return `
     <section class="surface-section">
@@ -48,12 +49,20 @@ function renderSurface(surface) {
 
         <div class="surface-section__stats">
           <span>${metrics.totalCards} cartes</span>
-          <span>${metrics.doneCount} validées</span>
-          <span>${metrics.progressCount} en cours</span>
+          <button
+            class="button tertiary small surface-section__density-toggle"
+            type="button"
+            data-action="toggle-surface-details"
+            data-surface-key="${escapeHtml(surface.id)}"
+            aria-pressed="${isExpanded ? "true" : "false"}"
+          >
+            ${isExpanded ? "Compacter" : "Agrandir"}
+          </button>
           <strong>${metrics.qaScore}/100</strong>
         </div>
       </header>
 
+      ${isExpanded ? `
       <div class="surface-section__progress">
         <div class="qa-card__progress-labels">
           <span>Progression globale</span>
@@ -66,14 +75,18 @@ function renderSurface(surface) {
       </div>
 
       <div class="page-stack">
-        ${surface.pages.map((page) => renderPage(surface, page)).join("")}
+        ${surface.pages.map((page) => renderPage(surface, page, filters)).join("")}
       </div>
+      ` : renderSurfacePagesOverview(surface)}
     </section>
   `;
 }
 
-function renderPage(surface, page) {
+function renderPage(surface, page, filters) {
   const metrics = getPageMetrics(page);
+  const pageKey = `${surface.id}::${page.id}`;
+  const isExpanded = Boolean(filters?.expandedPages?.[pageKey]);
+  const isCompact = !isExpanded;
 
   return `
     <section class="page-section">
@@ -84,14 +97,42 @@ function renderPage(surface, page) {
         </div>
         <div class="page-section__meta">
           <span>${metrics.totalCards} carte(s)</span>
+          <button
+            class="button tertiary small page-section__density-toggle"
+            type="button"
+            data-action="toggle-page-density"
+            data-page-key="${escapeHtml(pageKey)}"
+            aria-pressed="${isExpanded ? "true" : "false"}"
+          >
+            ${isExpanded ? "Compacter" : "Agrandir"}
+          </button>
           <strong>${metrics.completionPercent}% valide</strong>
         </div>
       </header>
 
-      <div class="cards-grid">
-        ${page.cards.map((card) => renderCard(surface, page, card)).join("")}
+      <div class="cards-grid ${isCompact ? "cards-grid--compact" : ""}">
+        ${page.cards.map((card) => renderCard(surface, page, card, { compact: isCompact })).join("")}
       </div>
     </section>
+  `;
+}
+
+function renderSurfacePagesOverview(surface) {
+  return `
+    <div class="surface-overview" aria-label="Vue compacte des pages et flux">
+      ${surface.pages.map((page) => {
+    const metrics = getPageMetrics(page);
+    return `
+          <article class="surface-overview__row">
+            <p class="surface-overview__title">${escapeHtml(page.name)}</p>
+            <div class="surface-overview__metrics">
+              <span>${metrics.totalCards} carte(s)</span>
+              <strong>${metrics.completionPercent}% valide</strong>
+            </div>
+          </article>
+        `;
+  }).join("")}
+    </div>
   `;
 }
 

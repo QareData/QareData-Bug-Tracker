@@ -24,12 +24,30 @@ export function createBoardInteractionsController({
   optimizeImage,
 }) {
   function handleBoardClick(event) {
+    const actionTarget = event.target.closest("[data-action]");
+    if (actionTarget?.dataset.action === "toggle-page-density") {
+      const pageKey = actionTarget.dataset.pageKey;
+      if (!pageKey) {
+        return;
+      }
+      togglePageDensity(pageKey);
+      return;
+    }
+
+    if (actionTarget?.dataset.action === "toggle-surface-details") {
+      const surfaceKey = actionTarget.dataset.surfaceKey;
+      if (!surfaceKey) {
+        return;
+      }
+      toggleSurfaceDetails(surfaceKey);
+      return;
+    }
+
     const card = event.target.closest(".qa-card");
     if (!card) {
       return;
     }
 
-    const actionTarget = event.target.closest("[data-action]");
     if (actionTarget) {
       const cardId = getCardIdFromNode(actionTarget);
       if (!cardId) {
@@ -197,6 +215,60 @@ export function createBoardInteractionsController({
     if (card.closest("#board-root")) {
       openCardModal(card.dataset.cardId);
     }
+  }
+
+  function togglePageDensity(pageKey) {
+    const wasExpanded = Boolean(store.getState().filters.expandedPages?.[pageKey]);
+
+    store.setState((current) => {
+      const expandedPages = {
+        ...(current.filters.expandedPages || {}),
+      };
+
+      if (expandedPages[pageKey]) {
+        delete expandedPages[pageKey];
+      } else {
+        expandedPages[pageKey] = true;
+      }
+
+      return {
+        ...current,
+        filters: {
+          ...current.filters,
+          expandedPages,
+        },
+      };
+    });
+
+    render();
+    updateSaveStatus(wasExpanded ? "Mode compact active." : "Mode detaille actif.");
+  }
+
+  function toggleSurfaceDetails(surfaceKey) {
+    const wasExpanded = Boolean(store.getState().filters.expandedSurfaces?.[surfaceKey]);
+
+    store.setState((current) => {
+      const expandedSurfaces = {
+        ...(current.filters.expandedSurfaces || {}),
+      };
+
+      if (expandedSurfaces[surfaceKey]) {
+        delete expandedSurfaces[surfaceKey];
+      } else {
+        expandedSurfaces[surfaceKey] = true;
+      }
+
+      return {
+        ...current,
+        filters: {
+          ...current.filters,
+          expandedSurfaces,
+        },
+      };
+    });
+
+    render();
+    updateSaveStatus(wasExpanded ? "Surface compacte." : "Surface detaillee.");
   }
 
   function handleBoardChange(event) {

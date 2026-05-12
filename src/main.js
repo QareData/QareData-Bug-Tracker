@@ -47,6 +47,8 @@ const store = createStore({
     severity: "all",
     onlyNotValidated: false,
     hideDone: false,
+    expandedPages: {},
+    expandedSurfaces: {},
   },
 });
 
@@ -387,7 +389,9 @@ function syncStaticFields(state) {
   }
 
   if (elements.headerProjectSubtitle) {
-    elements.headerProjectSubtitle.textContent = buildHeaderSubtitle(state.board.meta);
+    const subtitle = buildHeaderSubtitle(state.board.meta);
+    elements.headerProjectSubtitle.textContent = subtitle;
+    elements.headerProjectSubtitle.hidden = !subtitle;
   }
 }
 
@@ -407,7 +411,7 @@ function buildHeaderSubtitle(meta) {
     return `Campagne active sur ${environment}.`;
   }
 
-  return "Vue d'ensemble des campagnes de recette, criticités et exports.";
+  return "";
 }
 
 function updateSaveStatus(message) {
