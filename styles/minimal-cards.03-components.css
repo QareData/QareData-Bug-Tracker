@@ -320,6 +320,15 @@
   background: transparent;
   box-shadow: none;
   cursor: default;
+  overflow: visible;
+}
+
+.qa-card--modal::before {
+  top: -28px;
+  bottom: -28px;
+  left: -28px;
+  width: 8px;
+  border-radius: 32px 0 0 32px;
 }
 
 .qa-card--modal:hover {
@@ -329,8 +338,8 @@
 }
 
 .card-modal__header {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 20px;
   padding-right: 56px;
@@ -339,57 +348,77 @@
 
 .card-modal__titles {
   min-width: 0;
-  flex: 1;
+  display: contents;
 }
 
 .card-modal__kicker {
+  grid-column: 1;
+  grid-row: 1;
   margin-bottom: 10px;
   color: var(--brand-royal);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-modal__title {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: -webkit-box;
   font-family: var(--font-display);
   color: var(--brand-navy);
-  font-size: 34px;
-  line-height: 1.02;
-  letter-spacing: 0.04em;
-  overflow-wrap: anywhere;
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  text-wrap: balance;
 }
 
 .card-modal__badges {
+  grid-column: 2;
+  grid-row: 1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
   gap: 8px;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .card-modal__summary {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
   margin-bottom: 18px;
+  overflow: hidden;
 }
 
 .card-modal__summary span {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
   min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(17, 45, 97, 0.08);
-  color: var(--text-muted);
+  border: 1px solid rgba(17, 45, 97, 0.12);
+  color: #42577f;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
 }
 
 .card-modal__progress {
@@ -435,24 +464,25 @@
   font-weight: 400;
   letter-spacing: 0.03em;
   line-height: 1.35;
-  overflow-wrap: break-word;
-  word-break: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-modal__context-block p {
-  color: var(--text-muted);
+  color: #42577f;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre-line;
-  overflow-wrap: break-word;
-  word-break: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-modal__grid .field {
   padding: 16px;
   border-radius: 16px;
-  border: 1px solid rgba(17, 45, 97, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.94));
+  border: 1px solid rgba(17, 45, 97, 0.12);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.98));
   align-content: start;
 }
 
@@ -461,7 +491,25 @@
 .qa-card--modal .textarea-field,
 .qa-card--modal .qa-card__references,
 .qa-card--modal .qa-card__footer-actions {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 246, 255, 0.94));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 249, 255, 0.98));
+}
+
+.qa-card--modal .field span,
+.qa-card--modal .qa-panel__head span {
+  color: #42577f;
+  font-weight: 700;
+}
+
+.qa-card--modal .card-select,
+.qa-card--modal .card-text-input {
+  min-height: 62px;
+  padding: 0 22px;
+  color: #0f1f3d;
+  font-size: 16px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qa-card--modal .textarea-field {
@@ -485,7 +533,7 @@
 .qa-card--modal .qa-source-block,
 .qa-card--modal .qa-shot,
 .qa-card--modal .qa-card__references p {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .qa-card--modal .qa-card__references p,

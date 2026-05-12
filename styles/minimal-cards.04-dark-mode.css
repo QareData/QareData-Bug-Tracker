@@ -270,6 +270,21 @@ body.dark-mode .qa-card__metrics-line strong {
   color: var(--text-strong);
 }
 
+body.dark-mode .qa-card__metrics-line,
+body.dark-mode .qa-card__progress-labels,
+body.dark-mode .card-modal__summary span,
+body.dark-mode .card-modal__context-block p,
+body.dark-mode .qa-card--modal .field span,
+body.dark-mode .qa-card--modal .qa-panel__head span {
+  color: #d7e2ff;
+}
+
+body.dark-mode .qa-card--modal .card-select,
+body.dark-mode .qa-card--modal .card-text-input {
+  color: #f8fbff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
 body.dark-mode .surface-section__progress .qa-card__progress-labels span,
 body.dark-mode .surface-section__progress .qa-card__progress-labels strong,
 body.dark-mode .surface-section__progress p {

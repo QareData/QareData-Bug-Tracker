@@ -318,34 +318,34 @@
 }
 
 .qa-card__title {
-  display: -webkit-box;
+  display: block;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-body);
   font-size: 18px;
   font-weight: 700;
   line-height: 1.28;
   letter-spacing: -0.01em;
   color: var(--brand-navy);
-  overflow-wrap: anywhere;
 }
 
 .qa-card__pills,
 .qa-card__detail-pills {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
   justify-content: flex-end;
   align-items: center;
   min-width: 0;
+  overflow: hidden;
 }
 
 .pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
   min-height: 28px;
   padding: 4px 10px;
   border-radius: 999px;
@@ -354,8 +354,11 @@
   letter-spacing: 0.01em;
   line-height: 1.2;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   border: 1px solid transparent;
+  flex: 0 1 auto;
 }
 
 .pill-todo {
@@ -406,20 +409,21 @@
 
 .pill-source-neutral,
 .pill-neutral {
-  background: var(--card-muted);
-  color: var(--text-muted);
-  border-color: rgba(17, 45, 97, 0.08);
+  background: #eef4ff;
+  color: #42577f;
+  border-color: rgba(17, 45, 97, 0.12);
 }
 
 .qa-card__metrics-line {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px 0;
-  color: var(--text-muted);
+  color: #42577f;
   font-size: 13px;
   min-width: 0;
   align-items: center;
   line-height: 1.35;
+  overflow: hidden;
 }
 
 .qa-card__metrics-line span + span::before {
@@ -433,7 +437,9 @@
   align-items: center;
   gap: 6px;
   text-align: center;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qa-card__metrics-line strong {
@@ -456,7 +462,15 @@
   align-items: center;
   gap: 12px;
   font-size: 13px;
-  color: var(--text-muted);
+  color: #42577f;
+}
+
+.qa-card__progress-labels span,
+.qa-card__progress-labels strong,
+.qa-card__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .qa-card__progress-labels strong {
