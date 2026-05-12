@@ -829,19 +829,19 @@
                 }
               ],
               "sourceIssues": [
-                "La suppression complète laisse parfois l’écran dans un état bloqué."
+                "La liste ne se met pas toujours à jour après invitation et le doublon n’est pas assez protégé."
               ],
               "validatedPoints": [
-                "La suppression simple d’une entrée isolée fonctionne.",
-                "Les messages de confirmation sont affichés correctement."
+                "Le formulaire d’invitation est accessible et compréhensible.",
+                "La validation des champs email est correcte sur le cas nominal."
               ],
               "advice": [
-                "Corriger le reset de l’overlay et revalider le cas de suppression complète d’une organisation."
+                "Ajouter un contrôle anti-doublon côté interface et rafraîchir automatiquement la liste après succès."
               ],
               "references": [],
               "legacyContext": {
-                "description": "Le parcours a été rejoué sur suppression unitaire puis sur suppression de l’ensemble des entrées restantes.",
-                "expectedResult": "Après suppression, l’écran doit rester utilisable sans overlay résiduel ni blocage des actions."
+                "description": "Le scénario a été joué avec plusieurs emails et avec des cas de doublons déjà existants.",
+                "expectedResult": "Une invitation valide doit être envoyée une seule fois, reflétée immédiatement dans la liste utilisateur."
               }
             },
             {

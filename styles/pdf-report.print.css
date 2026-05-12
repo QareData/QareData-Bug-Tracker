@@ -1,0 +1,217 @@
+body.pdf-report {
+  background: #ffffff;
+  color: #172033;
+}
+
+body.pdf-report,
+body.pdf-report * {
+  box-sizing: border-box;
+}
+
+body.pdf-report .report-shell,
+body.pdf-report .report-page,
+body.pdf-report .report-flow,
+body.pdf-report .page-frame,
+body.pdf-report .hero-card,
+body.pdf-report .hero-copy,
+body.pdf-report .hero-score-card,
+body.pdf-report .score-card,
+body.pdf-report .summary-grid__side,
+body.pdf-report .section-hero,
+body.pdf-report .detail-card,
+body.pdf-report .detail-section,
+body.pdf-report .surface-card,
+body.pdf-report .insight-card,
+body.pdf-report .empty-panel,
+body.pdf-report .result-panel,
+body.pdf-report .timeline-card,
+body.pdf-report .image-card,
+body.pdf-report .undetailed-card,
+body.pdf-report .toc-row,
+body.pdf-report .meta-item,
+body.pdf-report .meta-strip__item,
+body.pdf-report .mini-stat,
+body.pdf-report .detail-card__header,
+body.pdf-report .detail-card__intro,
+body.pdf-report .timeline-card__head,
+body.pdf-report .surface-card__head,
+body.pdf-report .surface-card__head > div,
+body.pdf-report .toc-copy,
+body.pdf-report .toc-tags,
+body.pdf-report .detail-badges,
+body.pdf-report .page-footer,
+body.pdf-report [data-pdf-text] {
+  min-width: 0;
+  max-width: 100%;
+}
+
+body.pdf-report h1,
+body.pdf-report h2,
+body.pdf-report h3,
+body.pdf-report h4,
+body.pdf-report p,
+body.pdf-report li,
+body.pdf-report small,
+body.pdf-report strong,
+body.pdf-report blockquote,
+body.pdf-report figcaption,
+body.pdf-report a,
+body.pdf-report span,
+body.pdf-report div {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
+}
+
+body.pdf-report .report-shell {
+  width: min(100%, 980px);
+}
+
+body.pdf-report .report-page,
+body.pdf-report .report-flow {
+  padding: 20px;
+}
+
+body.pdf-report .page-frame {
+  min-height: 0;
+}
+
+body.pdf-report .report-page--toc,
+body.pdf-report .report-page--detail-intro,
+body.pdf-report .report-cover {
+  break-after: page;
+}
+
+body.pdf-report .report-flow {
+  padding: 0;
+  gap: 14px;
+}
+
+body.pdf-report .toc-row {
+  align-items: start;
+}
+
+body.pdf-report .toc-copy strong,
+body.pdf-report .detail-card__intro h3,
+body.pdf-report .timeline-card__head strong,
+body.pdf-report .surface-card__head h3,
+body.pdf-report .undetailed-card strong {
+  overflow-wrap: anywhere;
+}
+
+body.pdf-report .detail-card__header,
+body.pdf-report .detail-meta-grid,
+body.pdf-report .meta-grid,
+body.pdf-report .meta-strip,
+body.pdf-report .result-grid,
+body.pdf-report .image-grid,
+body.pdf-report .surface-grid,
+body.pdf-report .summary-grid,
+body.pdf-report .dashboard-grid,
+body.pdf-report .undetailed-list,
+body.pdf-report .mini-stats {
+  gap: 10px;
+}
+
+body.pdf-report .detail-card {
+  break-before: page;
+  page-break-before: always;
+}
+
+body.pdf-report .detail-card__header {
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 210px);
+}
+
+body.pdf-report .pdf-back-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  background: rgba(37, 99, 235, 0.08);
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+body.pdf-report .pdf-back-link:hover,
+body.pdf-report .pdf-back-link:focus {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+body.pdf-report .timeline-card,
+body.pdf-report .image-card,
+body.pdf-report .meta-item,
+body.pdf-report .meta-strip__item,
+body.pdf-report .mini-stat,
+body.pdf-report .surface-card,
+body.pdf-report .undetailed-card,
+body.pdf-report .toc-row,
+body.pdf-report .detail-card__header,
+body.pdf-report .detail-card__intro,
+body.pdf-report .summary-card,
+body.pdf-report .dashboard-card {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+body.pdf-report img,
+body.pdf-report canvas,
+body.pdf-report svg {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+body.pdf-report .image-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+body.pdf-report .report-page p,
+body.pdf-report .report-page li,
+body.pdf-report .report-page blockquote,
+body.pdf-report .report-page figcaption,
+body.pdf-report .report-page small,
+body.pdf-report .report-page a,
+body.pdf-report .report-page [data-pdf-text] {
+  max-width: 100%;
+}
+
+body.pdf-report .report-page [data-pdf-text] {
+  display: inline-block;
+}
+
+body.pdf-report .report-page .note-block,
+body.pdf-report .report-page .bullet-list,
+body.pdf-report .report-page .page-intro,
+body.pdf-report .report-page .detail-scenario,
+body.pdf-report .report-page .detail-path,
+body.pdf-report .report-page .step-stamp {
+  overflow: visible;
+}
+
+body.pdf-report .report-page .page-footer {
+  margin-top: auto;
+}
+
+@media print {
+  body.pdf-report {
+    margin: 0;
+    padding: 0;
+  }
+
+  body.pdf-report .report-shell {
+    gap: 0;
+  }
+
+  body.pdf-report .report-page,
+  body.pdf-report .report-flow {
+    box-shadow: none;
+  }
+}

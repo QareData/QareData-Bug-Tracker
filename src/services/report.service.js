@@ -30,7 +30,8 @@ export function buildReportModel(board, generatedAt = new Date()) {
   const undetailedCards = cardDetails
     .filter((card) => !card.isTested)
     .sort(sortDisplayCards);
-  const tocCards = detailCards.slice().sort(sortDisplayCards);
+  // Le sommaire doit suivre l'ordre réel des cartes détaillées, pas un tri secondaire.
+  const tocCards = detailCards.slice();
   const detailIds = new Set(detailCards.map((card) => card.id));
   const surfaces = board.surfaces
     .map((surface) => ({
@@ -260,22 +261,24 @@ function appendCardMarkdown(lines, card, boardMeta) {
 }
 
 function buildCardDetail(board, surface, page, card) {
-  const checklistMetrics = getCardChecklistMetrics(card);
-  const scenarioSteps = card.checklist.map((item) => buildScenarioStepDetail(item, board.meta));
+  // Deep clone incoming card to avoid implicit shared mutations during report generation
+  const safeCard = JSON.parse(JSON.stringify(card || {}));
+  const checklistMetrics = getCardChecklistMetrics(safeCard);
+  const scenarioSteps = safeCard.checklist.map((item) => buildScenarioStepDetail(item, board.meta));
   const severity = getSeverityMeta(card.severity);
   const status = getCardStatusMeta(card.status);
   const reportStatus = getCardReportStatus(card, scenarioSteps);
   const mentions = extractMentions([
-    ...card.references,
-    card.notes,
-    ...card.sourceIssues,
-    ...card.advice,
+    ...safeCard.references,
+    safeCard.notes,
+    ...safeCard.sourceIssues,
+    ...safeCard.advice,
   ]);
 
   return {
     id: card.id,
-    title: card.title,
-    scenarioTitle: cleanText(card.scenarioTitle || card.title) || card.title,
+    title: safeCard.title,
+    scenarioTitle: cleanText(safeCard.scenarioTitle || safeCard.title) || safeCard.title,
     surfaceId: surface.id,
     surfaceName: surface.name,
     pageId: page.id,
@@ -293,17 +296,17 @@ function buildCardDetail(board, surface, page, card) {
       ...reportStatus,
       badgeLabel: getReportStatusBadgeLabel(reportStatus.key),
     },
-    testDescription: buildTestDescription(card),
-    expectedResult: buildContextExpected(card),
-    workingItems: buildWorkingItems(card, scenarioSteps),
-    problemItems: buildProblemItems(card, scenarioSteps),
-    recommendations: buildRecommendations(card, scenarioSteps),
-    notes: String(card.notes || "").trim(),
-    tester: card.tester || board.meta.tester || "",
-    environment: card.environment || board.meta.environment || "",
-    screenshots: card.screenshots,
-    references: uniqueTexts([...card.references, ...mentions]),
-    risk: getCardRisk(card),
+    testDescription: buildTestDescription(safeCard),
+    expectedResult: buildContextExpected(safeCard),
+    workingItems: buildWorkingItems(safeCard, scenarioSteps),
+    problemItems: buildProblemItems(safeCard, scenarioSteps),
+    recommendations: buildRecommendations(safeCard, scenarioSteps),
+    notes: String(safeCard.notes || "").trim(),
+    tester: safeCard.tester || board.meta.tester || "",
+    environment: safeCard.environment || board.meta.environment || "",
+    screenshots: safeCard.screenshots,
+    references: uniqueTexts([...safeCard.references, ...mentions]),
+    risk: getCardRisk(safeCard),
   };
 }
 

@@ -4,9 +4,10 @@ import {
   formatPercent,
   formatReportDate,
 } from "../utils/format.js";
+import { normalizePdfText, truncateCaption } from "./pdf-wrapping.js";
 
 export function buildPrintablePdfDocument(report, options = {}) {
-  const baseHref = options.baseHref || window.location.href;
+  const baseHref = options.baseHref || (typeof document !== "undefined" ? document.baseURI : window.location.href);
 
   return `
     <!DOCTYPE html>
@@ -16,9 +17,10 @@ export function buildPrintablePdfDocument(report, options = {}) {
       <title>${escapeHtml(report.brand.reportName)}</title>
       <base href="${escapeAttribute(baseHref)}" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <link rel="stylesheet" href="./styles/pdf-report.print.css?v=20260512-pdf-1" media="print" />
       <style>${buildPrintableStyles()}</style>
     </head>
-    <body>
+    <body class="pdf-report">
       <main class="report-shell">
         ${renderCoverPage(report)}
         ${renderTocPage(report)}
@@ -52,7 +54,7 @@ function renderCoverPage(report) {
             <span class="eyebrow-chip eyebrow-chip--primary">QA Dashboard</span>
             <p class="hero-company">${escapeHtml(report.brand.companyName)}</p>
             <h1>${escapeHtml(report.brand.reportName)}</h1>
-            <p class="hero-project">${escapeHtml(report.brand.projectName)}</p>
+              <p class="hero-project" data-pdf-text>${pdfText(report.brand.projectName)}</p>
             <div class="meta-grid">
               ${renderMetaItem("Testeur", report.meta.tester || "Non renseigné")}
               ${renderMetaItem("Environnement", report.meta.environment || "Non renseigné")}
@@ -108,12 +110,12 @@ function renderTocPage(report) {
   const intro = `${report.detailScope.tocIntro} Chaque entrée renvoie vers la fiche correspondante dans le document.`;
 
   return `
-    <section class="report-page">
+    <section class="report-page report-page--toc" id="pdf-toc">
       <div class="page-frame">
         <section class="section-hero">
           <span class="eyebrow-chip eyebrow-chip--primary">Sommaire</span>
           <h2>Table des matières des cartes testées</h2>
-          <p class="page-intro">${escapeHtml(intro)}</p>
+          <p class="page-intro" data-pdf-text>${pdfText(intro)}</p>
           <div class="meta-strip">
             ${renderMetaStripItem("Cartes détaillées", `${report.detailScope.detailedCount} / ${report.detailScope.totalCount}`)}
             ${renderMetaStripItem("Échecs", report.reportStats.failedCount)}
@@ -127,11 +129,11 @@ function renderTocPage(report) {
               ? report.tocCards
                 .map(
                   (card, index) => `
-                    <a class="toc-row" href="#card-${escapeAttribute(card.id)}">
+                    <a class="toc-row" href="#${escapeAttribute(buildPdfAnchorId(card))}">
                       <span class="toc-index">${String(index + 1).padStart(2, "0")}</span>
                       <span class="toc-copy">
-                        <strong>${escapeHtml(card.title)}</strong>
-                        <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
+                        <strong data-pdf-text>${pdfText(card.title)}</strong>
+                        <small data-pdf-text>${pdfText(card.surfaceName)} · ${pdfText(card.pageName)}</small>
                       </span>
                       <span class="toc-tags">
                         ${renderPill(card.severity.tone, card.severity.badgeLabel || card.severity.label)}
@@ -161,7 +163,7 @@ function renderSummaryPage(report) {
         <section class="section-hero">
           <span class="eyebrow-chip eyebrow-chip--primary">Synthèse</span>
           <h2>Vue d'ensemble de la campagne</h2>
-          <p class="page-intro">${escapeHtml(report.detailScope.summary)}</p>
+          <p class="page-intro" data-pdf-text>${pdfText(report.detailScope.summary)}</p>
         </section>
 
         <section class="surface-grid">
@@ -176,7 +178,7 @@ function renderSummaryPage(report) {
                   <span class="eyebrow-chip eyebrow-chip--danger">Priorités QA</span>
                 </div>
                 <ul class="bullet-list bullet-list--danger">
-                  ${report.topProblems.map((card) => `<li>${escapeHtml(card.title)} · ${escapeHtml(card.surfaceName)} / ${escapeHtml(card.pageName)} · ${escapeHtml(card.reportStatus.label)}</li>`).join("")}
+                  ${report.topProblems.map((card) => `<li data-pdf-text>${pdfText(card.title)} · ${pdfText(card.surfaceName)} / ${pdfText(card.pageName)} · ${pdfText(card.reportStatus.label)}</li>`).join("")}
                 </ul>
               </section>
             `
@@ -201,8 +203,8 @@ function renderSurfaceCard(surface) {
     <article class="surface-card">
       <div class="surface-card__head">
         <div>
-          <h3>${escapeHtml(surface.name)}</h3>
-          <p>${escapeHtml(surface.description || "Surface sans description complémentaire.")}</p>
+          <h3 data-pdf-text>${pdfText(surface.name)}</h3>
+          <p data-pdf-text>${pdfText(surface.description || "Surface sans description complémentaire.")}</p>
         </div>
         <strong>${escapeHtml(String(surface.metrics.qaScore))}%</strong>
       </div>
@@ -210,10 +212,10 @@ function renderSurfaceCard(surface) {
       ${renderProgressBar(surface.metrics.qaScore, "progress-primary")}
 
       <div class="surface-card__stats">
-        <span>${escapeHtml(String(surface.metrics.totalCards))} cartes</span>
-        <span>${escapeHtml(String(surface.metrics.doneCount))} validées</span>
-        <span>${escapeHtml(String(surface.metrics.progressCount))} en cours</span>
-        <span>${escapeHtml(String(surface.metrics.blockersCount))} bloquantes</span>
+        <span data-pdf-text>${pdfText(String(surface.metrics.totalCards))} cartes</span>
+        <span data-pdf-text>${pdfText(String(surface.metrics.doneCount))} validées</span>
+        <span data-pdf-text>${pdfText(String(surface.metrics.progressCount))} en cours</span>
+        <span data-pdf-text>${pdfText(String(surface.metrics.blockersCount))} bloquantes</span>
       </div>
 
       <small>Couverture actuelle : ${escapeHtml(coverage)}</small>
@@ -269,6 +271,7 @@ function renderDetailPages(report) {
 }
 
 function renderDetailCard(card) {
+  const anchorId = buildPdfAnchorId(card);
   const workingItems = card.workingItems.length
     ? card.workingItems
     : [
@@ -285,32 +288,38 @@ function renderDetailCard(card) {
     ];
 
   return `
-    <article class="detail-card" id="card-${escapeAttribute(card.id)}">
+      <article class="detail-card" id="${escapeAttribute(anchorId)}">
       <header class="detail-card__header tone-${escapeAttribute(card.reportStatus.key)}">
         <div class="detail-card__intro">
-          <p class="detail-path">${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</p>
-          <h3>${escapeHtml(card.title)}</h3>
-          <p class="detail-scenario">${escapeHtml(card.scenarioTitle)}</p>
+            <p class="detail-path">${pdfText(card.surfaceName)} · ${pdfText(card.pageName)}</p>
+            <h3>${pdfText(card.title)}</h3>
+            <p class="detail-scenario">${pdfText(card.scenarioTitle)}</p>
         </div>
 
         <div class="detail-badges">
           ${renderPill(card.reportStatus.key, card.reportStatus.badgeLabel || card.reportStatus.label)}
           ${renderPill(`severity-${card.severity.tone}`, card.severity.badgeLabel || card.severity.label)}
+            <a
+              class="pdf-back-link"
+              href="#pdf-toc"
+              title="Retour au sommaire"
+              aria-label="Retour au sommaire"
+            >Retour au sommaire</a>
         </div>
       </header>
 
       <div class="detail-meta-grid">
-        ${renderMetaStripItem("Statut QA", card.status.label)}
-        ${renderMetaStripItem("Progression", `${card.checklist.checked}/${card.checklist.total} • ${card.checklist.progressPercent}%`)}
-        ${renderMetaStripItem("Testeur", card.tester || "Non renseigné")}
-        ${renderMetaStripItem("Environnement", card.environment || "Non renseigné")}
+          ${renderMetaStripItem("Statut QA", card.status.label)}
+          ${renderMetaStripItem("Progression", `${card.checklist.checked}/${card.checklist.total} • ${card.checklist.progressPercent}%`)}
+          ${renderMetaStripItem("Testeur", card.tester || "Non renseigné")}
+          ${renderMetaStripItem("Environnement", card.environment || "Non renseigné")}
       </div>
 
       <section class="detail-section">
         <div class="section-title-row">
           <span class="eyebrow-chip eyebrow-chip--subtle">Description</span>
         </div>
-        <p>${escapeHtml(card.testDescription)}</p>
+          <p data-pdf-text>${pdfText(card.testDescription)}</p>
       </section>
 
       ${
@@ -320,7 +329,7 @@ function renderDetailCard(card) {
               <div class="section-title-row">
                 <span class="eyebrow-chip eyebrow-chip--success">Résultat attendu</span>
               </div>
-              <p>${escapeHtml(card.expectedResult)}</p>
+              <p data-pdf-text>${pdfText(card.expectedResult)}</p>
             </section>
           `
           : ""
@@ -359,7 +368,7 @@ function renderDetailCard(card) {
                 <span class="eyebrow-chip eyebrow-chip--primary">Recommandations</span>
               </div>
               <ul class="bullet-list bullet-list--info">
-                ${card.recommendations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                ${card.recommendations.map((item) => `<li data-pdf-text>${pdfText(item)}</li>`).join("")}
               </ul>
             </section>
           `
@@ -373,7 +382,7 @@ function renderDetailCard(card) {
               <div class="section-title-row">
                 <span class="eyebrow-chip eyebrow-chip--warning">Notes</span>
               </div>
-              <blockquote class="note-block">${escapeHtml(card.notes)}</blockquote>
+              <blockquote class="note-block" data-pdf-text>${pdfText(card.notes)}</blockquote>
             </section>
           `
           : ""
@@ -390,7 +399,7 @@ function renderDetailCard(card) {
                 ${card.screenshots.map((shot) => `
                   <figure class="image-card">
                     <img src="${escapeAttribute(shot.dataUrl)}" alt="${escapeAttribute(shot.name)}" />
-                    <figcaption>${escapeHtml(shot.name)}</figcaption>
+                    <figcaption data-pdf-text>${pdfText(truncateCaption(shot.name))}</figcaption>
                   </figure>
                 `).join("")}
               </div>
@@ -407,7 +416,7 @@ function renderDetailCard(card) {
                 <span class="eyebrow-chip eyebrow-chip--subtle">Références utiles</span>
               </div>
               <ul class="bullet-list bullet-list--info">
-                ${card.references.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+                ${card.references.map((item) => `<li data-pdf-text>${pdfText(item)}</li>`).join("")}
               </ul>
             </section>
           `
@@ -425,17 +434,17 @@ function renderStep(step, index) {
       <span class="timeline-index">${index + 1}</span>
       <div class="timeline-card">
         <div class="timeline-card__head">
-          <strong>${escapeHtml(step.label)}</strong>
+          <strong data-pdf-text>${pdfText(step.label)}</strong>
           ${renderPill(statusKey, step.statusBadgeLabel || step.statusLabel)}
         </div>
-        <p class="step-stamp">${escapeHtml(step.testStamp || "Étape non testée pour le moment.")}</p>
+        <p class="step-stamp" data-pdf-text>${pdfText(step.testStamp || "Étape non testée pour le moment.")}</p>
         ${
           step.status === "ko" && step.bug
             ? `
               <div class="bug-box">
-                <p><strong>Bug :</strong> ${escapeHtml(step.bug.description)}</p>
-                <p><strong>Observé :</strong> ${escapeHtml(step.bug.observedBehavior)}</p>
-                <p><strong>Attendu :</strong> ${escapeHtml(step.bug.expectedResult)}</p>
+                <p data-pdf-text><strong>Bug :</strong> ${pdfText(step.bug.description)}</p>
+                <p data-pdf-text><strong>Observé :</strong> ${pdfText(step.bug.observedBehavior)}</p>
+                <p data-pdf-text><strong>Attendu :</strong> ${pdfText(step.bug.expectedResult)}</p>
               </div>
             `
             : ""
@@ -448,9 +457,9 @@ function renderStep(step, index) {
 function renderResultPanel(title, items, tone) {
   return `
     <article class="result-panel result-panel--${escapeAttribute(tone)}">
-      <h4>${escapeHtml(title)}</h4>
+      <h4 data-pdf-text>${pdfText(title)}</h4>
       <ul class="bullet-list bullet-list--${escapeAttribute(tone)}">
-        ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        ${items.map((item) => `<li data-pdf-text>${pdfText(item)}</li>`).join("")}
       </ul>
     </article>
   `;
@@ -470,8 +479,8 @@ function renderUndetailedCardsSection(report) {
       <div class="undetailed-list">
         ${report.undetailedCards.map((card) => `
           <article class="undetailed-card">
-            <strong>${escapeHtml(card.title)}</strong>
-            <small>${escapeHtml(card.surfaceName)} · ${escapeHtml(card.pageName)}</small>
+            <strong data-pdf-text>${pdfText(card.title)}</strong>
+            <small data-pdf-text>${pdfText(card.surfaceName)} · ${pdfText(card.pageName)}</small>
           </article>
         `).join("")}
       </div>
@@ -508,8 +517,8 @@ function renderMetricTile(label, value, tone) {
 function renderMetaItem(label, value) {
   return `
     <div class="meta-item">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
+      <span>${pdfText(label)}</span>
+      <strong data-pdf-text>${pdfText(value)}</strong>
     </div>
   `;
 }
@@ -517,8 +526,8 @@ function renderMetaItem(label, value) {
 function renderMetaStripItem(label, value) {
   return `
     <div class="meta-strip__item">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(String(value))}</strong>
+      <span>${pdfText(label)}</span>
+      <strong data-pdf-text>${pdfText(String(value))}</strong>
     </div>
   `;
 }
@@ -526,8 +535,8 @@ function renderMetaStripItem(label, value) {
 function renderMiniStat(label, value) {
   return `
     <div class="mini-stat">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(String(value))}</strong>
+      <span>${pdfText(label)}</span>
+      <strong data-pdf-text>${pdfText(String(value))}</strong>
     </div>
   `;
 }
@@ -535,14 +544,14 @@ function renderMiniStat(label, value) {
 function renderPageFooter(report, sectionLabel) {
   return `
     <footer class="page-footer">
-      <span>${escapeHtml(report.brand.reportName)} · ${escapeHtml(report.brand.projectName)}</span>
-      <span>${escapeHtml(sectionLabel)} · ${escapeHtml(formatReportDate(report.generatedAt))}</span>
+      <span>${pdfText(report.brand.reportName)} · ${pdfText(report.brand.projectName)}</span>
+      <span>${pdfText(sectionLabel)} · ${pdfText(formatReportDate(report.generatedAt))}</span>
     </footer>
   `;
 }
 
 function renderPill(theme, label) {
-  return `<span class="pill pill--${escapeAttribute(theme)}">${escapeHtml(label)}</span>`;
+  return `<span class="pill pill--${escapeAttribute(theme)}">${pdfText(label)}</span>`;
 }
 
 function renderProgressBar(value, className) {
@@ -558,8 +567,8 @@ function renderEmptyPanel(title, copy) {
   return `
     <section class="empty-panel">
       <span class="eyebrow-chip eyebrow-chip--warning">État actuel</span>
-      <h3>${escapeHtml(title)}</h3>
-      <p>${escapeHtml(copy)}</p>
+      <h3 data-pdf-text>${pdfText(title)}</h3>
+      <p data-pdf-text>${pdfText(copy)}</p>
     </section>
   `;
 }
@@ -569,6 +578,22 @@ function toSentenceList(text, maxItems = 5) {
     .map((item) => item.trim())
     .filter(Boolean)
     .slice(0, maxItems);
+}
+
+function pdfText(value) {
+  return escapeHtml(normalizePdfText(value));
+}
+
+function buildPdfAnchorId(card) {
+  const source = normalizePdfText(card?.id || card?.title || "carte");
+  const slug = source
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return `card-${slug || "carte"}`;
 }
 
 function buildPrintableStyles() {
