@@ -1,2 +1,12 @@
 .DS_Store
 **/._*
+test-output/
+test/harness/
+.puppeteer/
+puppeteer-cache/
+# harness outputs
+test-output/**/*.metrics.json
+test-output/**/*.png
+test-output/**/*.pdf
+test-output/**/*.log
+harness.log
